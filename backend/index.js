@@ -1,52 +1,42 @@
+import express from "express";
+import cors from "cors";
 import "dotenv/config";
-import { initializeApp } from "firebase/app";
-import { getAuth, signInWithEmailAndPassword } from "firebase/auth";
-import {
-    getFirestore,
-    collection,
-    addDoc,
-    serverTimestamp,
-} from "firebase/firestore";
+import admin from "firebase-admin";
 
-const firebaseConfig = {
-    apiKey: process.env.FIREBASE_API_KEY,
-    authDomain: process.env.FIREBASE_AUTH_DOMAIN,
-    projectId: process.env.FIREBASE_PROJECT_ID,
-    storageBucket: process.env.FIREBASE_STORAGE_BUCKET,
-    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID,
-    appId: process.env.FIREBASE_APP_ID,
-    measurementId: process.env.FIREBASE_MEASUREMENT_ID,
-};
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// Khởi tạo Firebase App
-const app = initializeApp(firebaseConfig);
+// Khởi tạo Firebase Admin SDK
+admin.initializeApp({
+    credential: admin.credential.cert({
+        projectId: process.env.EXPO_PUBLIC_FIREBASE_PROJECT_ID,
+        clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+        privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, "\n"),
+    }),
+});
 
-// Firebase Authentication
-const auth = getAuth(app);
+const db = admin.firestore();
 
-// Kết nối Firestore
-// const db = getFirestore(app);
+// Middleware xác thực Firebase ID Token
+// Hiện tại chưa dùng
+async function verifyFirebaseToken(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader?.startsWith("Bearer ")) {
+        return res
+            .status(401)
+            .json({ error: "Missing or invalid Authorization header" });
+    }
 
-// // Demo add document
-// // await addDoc(collection(db, "users"), {
-// //     name: "Hai Truong",
-// //     email: "haitruong@gmail.com",
-// //     password: "conga1234",
-// //     createdAt: serverTimestamp(),
-// // });
-
-// Đăng nhập user có sẵn
-async function login() {
-  try {
-    const userCredential = await signInWithEmailAndPassword(auth, "test@gmail.com", "123456");
-    console.log("User signed in:", userCredential.user.email);
-  } catch (error) {
-    console.error("Error logging in:", error.message);
-  }
+    const token = authHeader.split("Bearer ")[1];
+    try {
+        const decoded = await admin.auth().verifyIdToken(token);
+        req.user = decoded;
+        next();
+    } catch (error) {
+        return res.status(401).json({ error: "Invalid token" });
+    }
 }
 
-await login();
+// MQTT Setup
 
-// Log test
-// console.log("Firebase App initialized successfully!");
-// console.log("Firestore instance:", db._databaseId?.projectId || "No project found");

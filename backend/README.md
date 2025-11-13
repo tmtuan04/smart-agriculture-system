@@ -9,8 +9,40 @@ Backend của hệ thống được xây dựng hoàn toàn trên **Firebase**, 
 -   Thống kê và gửi thông báo tự động (qua Firebase Cloud Functions)
 -   Giao tiếp real-time với thiết bị thông qua **MQTT**
 
----
 
+---
+## MQTT
+
+**MQTT (Message Queuing Telemetry Transport)** là một giao thức truyền thông nhẹ (lightweight) dùng trong IoT. Nó hoạt động theo mô hình **Publish / Subscribe**, nghĩa là:
+- Một thiết bị (Publisher) gửi dữ liệu lên một kênh (Topic)
+- Một hoặc nhiều thiết bị khác (Subscriber) đăng ký (subscribe) vào topic đó để nhận dữ liệu.
+
+Các thành phần chính trong MQTT
+| Thành phần     | Vai trò                                                     | Ví dụ                                  |
+| -------------- | ----------------------------------------------------------- | -------------------------------------- |
+| **Broker**     | Máy chủ trung tâm — trung gian truyền tin giữa các thiết bị | HiveMQ, Mosquitto, EMQX                |
+| **Publisher**  | Gửi dữ liệu lên broker                                      | ESP32 gửi nhiệt độ, độ ẩm              |
+| **Subscriber** | Nhận dữ liệu từ broker                                      | Node.js server, hoặc dashboard         |
+| **Topic**      | “Kênh” để gửi/nhận dữ liệu                                  | `smartfarm/sensors`, `home/room1/temp` |
+
+Luồng hoạt động tổng quát
+```mermaid
+sequenceDiagram
+participant ESP32 as Device (Publisher)
+participant Broker as MQTT Broker (HiveMQ)
+participant Server as Node.js Server (Subscriber)
+participant Firestore as Firebase Firestore
+
+ESP32 ->> Broker: Publish {"temp": 29.5, "humidity": 60} to topic smartfarm/sensors
+Broker -->> Server: Forward message from topic smartfarm/sensors
+Server ->> Server: Parse JSON + Validate data
+Server ->> Firestore: Save data (temp, humidity, timestamp)
+Firestore -->> Server: Confirm write success
+Server -->> Broker: (Optional) Publish ack message
+
+```
+
+---
 ## Firebase Services Used
 
 ### 1. **Firebase Firestore**
@@ -23,6 +55,23 @@ Backend của hệ thống được xây dựng hoàn toàn trên **Firebase**, 
 
 -   Xác thực người dùng qua email/password hoặc token.
 -   Bảo mật truy cập API và quản lý quyền user.
+
+Luồng Login/Register bằng Email/Password:
+```mermaid
+sequenceDiagram
+participant User
+participant ReactNative
+participant FirebaseAuth
+participant Firestore
+
+User ->> ReactNative: Nhập email + password
+ReactNative ->> FirebaseAuth: createUserWithEmailAndPassword() / signInWithEmailAndPassword()
+FirebaseAuth -->> ReactNative: user + idToken
+ReactNative ->> Firestore: Ghi / đọc dữ liệu (qua SDK hoặc Rules bảo vệ)
+Firestore -->> ReactNative: Trả dữ liệu
+ReactNative -->> User: Hiển thị kết quả
+
+```
 
 ### 3. **Firebase Cloud Functions**
 
