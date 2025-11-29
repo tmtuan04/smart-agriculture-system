@@ -110,4 +110,3 @@ App -> Firebase SDK -> Firestore API -> Kiểm tra quyền -> Save
 | Dữ liệu thời gian (`createdAt`) | Phải tự nhập                     | Có thể dùng `serverTimestamp()`       |
 | Dùng cho                        | Test, debug, seed dữ liệu        | App thực tế, automation               |
 | Tính mở rộng                    | Không thể mở rộng                | Có thể tích hợp logic phức tạp        |
-    

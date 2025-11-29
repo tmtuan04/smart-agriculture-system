@@ -1,0 +1,177 @@
+import express from "express"
+import { login, logout, signup } from "../controllers/auth.controller.js";
+
+const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Auth
+ *   description: Authentication endpoints (JWT for mobile)
+ *
+ * components:
+ *   securitySchemes:
+ *     bearerAuth:
+ *       type: http
+ *       scheme: bearer
+ *       bearerFormat: JWT
+ */
+
+/**
+ * @swagger
+ * /auth/login:
+ *   post:
+ *     summary: User login
+ *     tags: [Auth]
+ *     description: Authenticate user using email + password and return a JWT token (mobile stores in Secure Storage).
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - email
+ *               - password
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 example: Password123
+ *     responses:
+ *       200:
+ *         description: Login successful (JWT token returned)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                   example: 67ac1234ef901234abcd5678
+ *                 email:
+ *                   type: string
+ *                   example: user@example.com
+ *                 dateOfBirth:
+ *                   type: string
+ *                   example: "2000-05-10"
+ *                 profilePic:
+ *                   type: string
+ *                   example: "https://example.com/avatar.png"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for mobile Secure Storage
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *       400:
+ *         description: Invalid Credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Invalid Credentials
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /auth/signup:
+ *   post:
+ *     summary: User registration (mobile)
+ *     tags: [Auth]
+ *     description: Create a new user account. Returns user info and JWT token for mobile Secure Storage.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - fullName
+ *               - email
+ *               - password
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *                 example: John Doe
+ *               email:
+ *                 type: string
+ *                 example: user@example.com
+ *               password:
+ *                 type: string
+ *                 example: Password123
+ *     responses:
+ *       201:
+ *         description: User created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                   example: 67ac1234ef901234abcd5678
+ *                 fullName:
+ *                   type: string
+ *                   example: John Doe
+ *                 email:
+ *                   type: string
+ *                   example: user@example.com
+ *                 profilePic:
+ *                   type: string
+ *                   example: "https://example.com/avatar.png"
+ *                 dateOfBirth:
+ *                   type: string
+ *                   example: "2000-05-10"
+ *                 token:
+ *                   type: string
+ *                   description: JWT token for mobile Secure Storage
+ *                   example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *
+ *       400:
+ *         description: Validation error or email already exists
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Email already exists
+ *
+ *       500:
+ *         description: Internal Server Error
+ */
+
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Logout user
+ *     tags: [Auth]
+ *     description: Mobile app should remove the stored JWT token. Backend only returns success message.
+ *     responses:
+ *       200:
+ *         description: Logout Successful
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Logout Successful
+ *       500:
+ *         description: Internal Server Error
+ */
+
+router.post("/signup", signup)
+router.post("/login", login)
+router.post("/logout", logout)
+
+export default router;
