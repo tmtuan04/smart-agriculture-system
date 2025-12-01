@@ -1,6 +1,9 @@
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { OAuth2Client } from "google-auth-library"
+
+const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 // Gen JWT Token
 const generateToken = (userId) => {
@@ -8,6 +11,10 @@ const generateToken = (userId) => {
         expiresIn: "1d",
     });
 };
+
+export const googleLogin = async (req, res) => {
+
+}
 
 export const signup = async (req, res) => {
     const { fullName, email, password } = req.body;
@@ -42,10 +49,8 @@ export const signup = async (req, res) => {
 
         res.status(201).json({
             _id: newUser._id,
-            fullName: newUser.fullName,
             email: newUser.email,
-            profilePic: newUser.profilePic,
-            dateOfBirth: newUser.dateOfBirth,
+            fullName: newUser.fullName,
             token,
         });
     } catch (error) {
@@ -72,8 +77,7 @@ export const login = async (req, res) => {
         res.status(200).json({
             _id: user._id,
             email: user.email,
-            dateOfBirth: user.dateOfBirth,
-            profilePic: user.profilePic,
+            fullName: user.fullName,
             token, // JWT cho mobile lưu trong secure storage
         });
     } catch (error) {

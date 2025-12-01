@@ -1,5 +1,156 @@
 # Smart Agriculture System - Backend
 
+
+Tổng quan kiến trúc của hệ thống
+```
+ESP32 → MQTT Broker (Mosquitto / EMQX) 
+      → Node.js MQTT Client 
+      → Sensor Controller → MongoDB (sensors)
+                               ↓
+                           Alerts Logic → alerts collection
+                               ↓
+                        Cron Job (daily) → reports collection
+                               ↓
+                        Dashboard / Mobile App
+
+```
+
+## Flow hoạt động chi tiết
+
+(A) ESP32 → MQTT Broker
+- ESP đọc nhiệt độ, độ ẩm, độ ẩm đất mỗi X giây
+- Gửi JSON lên topic, ví dụ topic: `smartfarm/{deviceId}/data` 
+- Payload:
+```
+{
+  "temperature": 29.3,
+  "humidity": 70,
+  "soilMoisture": 520,
+  "timestamp": 1733049000000
+}
+```
+
+(B) MQTT Broker → Node.js Backend (Subscriber)
+- Node.js chạy 1 MQTT client:
+```js
+mqttClient.on("message", async (topic, payload) => {
+    const data = JSON.parse(payload.toString());
+
+    // Lưu sensors
+    await Sensor.create({
+        deviceId,
+        temperature: data.temperature,
+        humidity: data.humidity,
+        soilMoisture: data.soilMoisture,
+        timestamp: new Date()
+    });
+
+    // Gọi trigger
+    checkAlerts(deviceId, data);
+});
+```
+- Backend là subscriber theo topic: `smartfarm/+/data`
+- Dấu `+` là wildcard để nhận của tất cả `deviceId` → Kết quả: nhận realtime dữ liệu, lưu vào collection `sensors`.
+
+(C) Trigger Alerts – Khi vượt ngưỡng
+
+Sau khi lưu sensor data, backend chạy hàm `checkAlerts()` để sinh cảnh báo.
+
+Demo:
+```js
+function checkAlerts(deviceId, data) {
+    if (data.temperature > 40) {
+        createAlert(deviceId, "temperature", `Nhiệt độ quá cao`, data.temperature);
+    }
+
+    if (data.humidity < 20) {
+        createAlert(deviceId, "humidity", `Độ ẩm quá thấp`, data.humidity);
+    }
+
+    if (data.soilMoisture < 300) {
+        createAlert(deviceId, "soilMoisture", `Đất quá khô`, data.soilMoisture);
+    }
+}
+
+
+async function createAlert(deviceId, type, message, value) {
+    await Alert.create({
+        deviceId,
+        type,
+        message,
+        value,
+        status: "unread",
+        createdAt: new Date(),
+    });
+}
+
+```
+
+(D) Cron job tổng hợp dữ liệu (daily reports)
+- Cron chạy 1 lần/ngày, ví dụ 23:59
+
+```js
+async function aggregateDailyReport() {
+    const devices = await Device.find();
+
+    for (const d of devices) {
+        const stats = await Sensor.aggregate([
+            {
+                $match: {
+                    deviceId: d._id,
+                    timestamp: {
+                        $gte: startOfToday(),
+                        $lte: endOfToday(),
+                    }
+                }
+            },
+            {
+                $group: {
+                    _id: null,
+                    avgTem: { $avg: "$temperature" },
+                    avgHum: { $avg: "$humidity" },
+                    maxTem: { $max: "$temperature" },
+                    minTem: { $min: "$temperature" },
+                }
+            }
+        ]);
+
+        if (stats.length > 0) {
+            await Report.create({
+                deviceId: d._id,
+                date: formatDay(),
+                ...stats[0]
+            });
+        }
+    }
+}
+```
+→ Dashboard chỉ cần GET /reports để hiển thị biểu đồ thống kê.
+
+---
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant Server
+    participant Google
+
+    Client->>Server: GET /auth/google
+    Server->>Google: Redirect user to Google OAuth consent (scope: profile,email)
+    Google-->>Client: Show login & consent screen
+    Client->>Google: User enters credentials & consents
+    Google-->>Client: Redirect back to /auth/google/callback with ?code
+    Client->>Server: GET /auth/google/callback?code=...
+    Server->>Google: Exchange code for access_token & id_token
+    Google-->>Server: Return access_token + id_token + profile info
+    Server->>Server: Find or create user in DB
+    Server->>Server: Generate JWT / create session
+    Server-->>Client: Redirect to frontend or set cookie/token
+    Client->>Server: Request protected resource with JWT or session
+    Server-->>Client: Return protected data
+
+```
+
 ## Overview
 
 Backend của hệ thống được xây dựng hoàn toàn trên **Firebase**, đảm nhiệm các chức năng:

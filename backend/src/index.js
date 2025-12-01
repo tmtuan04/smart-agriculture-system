@@ -2,11 +2,13 @@ import express from "express";
 import cors from "cors";
 import "dotenv/config";
 import swaggerUI from "swagger-ui-express";
-
 import { swaggerSpec } from "./docs/swagger.js";
 import { devLogger } from "./middlewares/morganLogger.js";
-import authRoutes from "./routes/auth.route.js";
 import { connectDB } from "./lib/db.js";
+
+import authRoutes from "./routes/auth.route.js";
+import deviceRoutes from "./routes/device.route.js"
+import sensorRoutes from "./routes/sensor.route.js"
 
 const app = express();
 
@@ -27,6 +29,8 @@ app.use(
 
 // Routes
 app.use("/api/auth", authRoutes);
+app.use("/api/device", deviceRoutes);
+app.use("/api/sensor", sensorRoutes);
 
 // Swagger UI
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));

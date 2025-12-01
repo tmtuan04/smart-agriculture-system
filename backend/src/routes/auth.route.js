@@ -54,12 +54,9 @@ const router = express.Router();
  *                 email:
  *                   type: string
  *                   example: user@example.com
- *                 dateOfBirth:
+ *                 fullName:
  *                   type: string
- *                   example: "2000-05-10"
- *                 profilePic:
- *                   type: string
- *                   example: "https://example.com/avatar.png"
+ *                   example: User Example
  *                 token:
  *                   type: string
  *                   description: JWT token for mobile Secure Storage
@@ -122,12 +119,6 @@ const router = express.Router();
  *                 email:
  *                   type: string
  *                   example: user@example.com
- *                 profilePic:
- *                   type: string
- *                   example: "https://example.com/avatar.png"
- *                 dateOfBirth:
- *                   type: string
- *                   example: "2000-05-10"
  *                 token:
  *                   type: string
  *                   description: JWT token for mobile Secure Storage
