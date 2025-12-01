@@ -1,5 +1,6 @@
 import express from "express"
-import { login, logout, signup } from "../controllers/auth.controller.js";
+import { getMyProfile, login, logout, signup } from "../controllers/auth.controller.js";
+import { authenticate } from "../middlewares/auth.middleware.js";
 
 const router = express.Router();
 
@@ -36,10 +37,10 @@ const router = express.Router();
  *             properties:
  *               email:
  *                 type: string
- *                 example: user@example.com
+ *                 example: tuan04tm@gmail.com
  *               password:
  *                 type: string
- *                 example: Password123
+ *                 example: hello123
  *     responses:
  *       200:
  *         description: Login successful (JWT token returned)
@@ -161,8 +162,52 @@ const router = express.Router();
  *         description: Internal Server Error
  */
 
+/**
+ * @swagger
+ * /auth/me:
+ *   get:
+ *     summary: Get current user's profile
+ *     tags: [Auth]
+ *     security:
+ *       - bearerAuth: []
+ *     description: Retrieve the currently authenticated user's info. Password is excluded.
+ *     responses:
+ *       200:
+ *         description: Current user profile
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 _id:
+ *                   type: string
+ *                   example: 67ac1234ef901234abcd5678
+ *                 fullName:
+ *                   type: string
+ *                   example: John Doe
+ *                 email:
+ *                   type: string
+ *                   example: user@example.com
+ *                 profilePic:
+ *                   type: string
+ *                   example: https://example.com/avatar.jpg
+ *                 createdAt:
+ *                   type: string
+ *                   example: 2025-12-01T13:45:00.000Z
+ *                 updatedAt:
+ *                   type: string
+ *                   example: 2025-12-01T13:45:00.000Z
+ *       401:
+ *         description: Unauthorized (invalid or missing token)
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Internal Server Error
+ */
+
 router.post("/signup", signup)
 router.post("/login", login)
 router.post("/logout", logout)
+router.get("/me", authenticate, getMyProfile)
 
 export default router;

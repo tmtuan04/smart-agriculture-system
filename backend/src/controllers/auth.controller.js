@@ -12,8 +12,16 @@ const generateToken = (userId) => {
     });
 };
 
-export const googleLogin = async (req, res) => {
+// export const googleLogin = async (req, res) => {
 
+// }
+
+export const getMyProfile = async (req, res) => {
+    try {
+        res.status(200).json(req.user);
+    } catch (error) {
+        res.status(500).json({ message: 'Internal Server Error' });
+    }
 }
 
 export const signup = async (req, res) => {
