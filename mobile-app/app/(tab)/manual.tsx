@@ -1,9 +1,70 @@
-import React from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image } from "react-native";
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getDeviceByUser } from "@/api/device";
+import { getLatestSensor } from "@/api/sensor";
+import { useLocalSearchParams } from "expo-router";
+
+type SensorData = {
+    temperature: number;
+    soilMoisture: number;
+    humidity: number;
+};
 
 export default function ManualScreen() {
+    const [sensor, setSensor] = useState<SensorData | null>(null);
+    const [deviceId, setDeviceId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(false);
+
+    const { userId } = useLocalSearchParams<{ userId: string }>();
+    
+    const loadDeviceId = async (userId: string) => {
+        
+        const deviceRes = await getDeviceByUser(userId);
+        if (!deviceRes || !deviceRes.data.length) {
+            Alert.alert("Thông báo", "Bạn chưa có thiết bị");
+            return;
+        }
+
+        setDeviceId(deviceRes.data[0]._id);
+    };
+
+    const loadSensorData = async () => {
+        if (!deviceId){
+            return;
+        }
+        try {
+            setLoading(true);
+
+            const res = await getLatestSensor(deviceId);
+            if (!res.ok) {
+                Alert.alert("Lỗi", "Không lấy được dữ liệu cảm biến");
+                return;
+            }
+
+            setSensor(res.data);
+        } catch (err) {
+            console.error(err);
+            Alert.alert("Lỗi mạng", "Không thể kết nối server");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (userId) {
+            loadDeviceId(userId);
+        }
+    }, [userId]);
+
+    useEffect(() => {
+        if (deviceId) {
+            loadSensorData();
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [deviceId]);
+
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
@@ -29,7 +90,9 @@ export default function ManualScreen() {
                         {/* Cột 1: Nhiệt độ */}
                         <View style={styles.statusItem}>
                             <MaterialCommunityIcons name="thermometer" size={32} color="#EF5350" /> 
-                            <Text style={styles.valueText}>29,8°C</Text>
+                            <Text style={styles.valueText}>
+                                {sensor ? `${sensor.temperature}°C` : "--"}
+                            </Text>
                             <Text style={styles.labelText}>Nhiệt độ</Text>
                         </View>
 
@@ -37,26 +100,36 @@ export default function ManualScreen() {
                         <View style={styles.statusItem}>
                             {/* Dùng icon 'grass' hoặc 'sprout' cho đất */}
                             <MaterialCommunityIcons name="grass" size={32} color="#66BB6A" />
-                            <Text style={styles.valueText}>45%</Text>
+                            <Text style={styles.valueText}>
+                                {sensor ? `${sensor.soilMoisture}%` : "--"}
+                            </Text>
                             <Text style={styles.labelText}>Độ ẩm đất</Text>
                         </View>
 
                         {/* Cột 3: Độ ẩm không khí */}
                         <View style={styles.statusItem}>
                             <MaterialCommunityIcons name="water-outline" size={32} color="#4FC3F7" />
-                            <Text style={styles.valueText}>68%</Text>
+                            <Text style={styles.valueText}>
+                                {sensor ? `${sensor.humidity}%` : "--"}
+                            </Text>
                             <Text style={styles.labelText}>Độ ẩm KK</Text>
                         </View>
                     </View>
                 </View>
-
+                
                 <View style={styles.card}>
                     <Text style={styles.cardTitle}>Thao tác nhanh</Text>
                     
                     <View style={styles.actionRow}>
                         {/* Nút Làm mới */}
-                        <TouchableOpacity style={[styles.button, styles.btnRefresh]}>
-                            <Text style={styles.btnRefreshText}>LÀM MỚI</Text>
+                        <TouchableOpacity
+                            style={[styles.button, styles.btnRefresh]}
+                            onPress={loadSensorData}
+                            disabled={loading}
+                        >
+                            <Text style={styles.btnRefreshText}>
+                            {loading ? "ĐANG TẢI" : "LÀM MỚI"}
+                            </Text>
                         </TouchableOpacity>
 
                         {/* Nút Cảnh báo */}
@@ -70,6 +143,7 @@ export default function ManualScreen() {
         </SafeAreaView>
     );
 }
+
 
 const styles = StyleSheet.create({
     container: {

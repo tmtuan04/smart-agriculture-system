@@ -31,13 +31,22 @@ export default function AuthScreen() {
         try {
             if (screenType === "login") {
                 const { ok, data } = await loginApi(email, password);
-
+                const userId = data?._id;
+                if (!userId) {
+                        Alert.alert("Login lỗi", "Thiếu userId");
+                        return;
+                }
                 if (ok) {
                     // Lưu token
                     await SecureStore.setItemAsync("token", data.token); 
+                    // Lưu userId
+                    await SecureStore.setItemAsync("userId", data._id);
 
                     Alert.alert("Đăng nhập thành công", `Xin chào ${data.fullName}`);
-                    router.replace("/manual");
+                    router.replace({
+                        pathname: "/manual",
+                        params: { userId: data._id },
+                    });
                 } else {
                     Alert.alert("Đăng nhập thất bại", data.message);
                 }
@@ -48,7 +57,12 @@ export default function AuthScreen() {
                     if (data?.token) {
                         // Lưu token
                         await SecureStore.setItemAsync("token", data.token);
-                        router.replace("/manual");
+                        // Lưu userId
+                        await SecureStore.setItemAsync("userId", data._id);
+                        router.replace({
+                            pathname: "/manual",
+                            params: { userId: data._id },
+                        });
                     } else {
                         Alert.alert("Đăng ký thành công", "Bạn có thể đăng nhập ngay bây giờ!");
                         setScreenType("login");
