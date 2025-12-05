@@ -26,6 +26,16 @@ export default function TabsLayout() {
             }}
         >
             <Tabs.Screen
+                name="status"
+                options={{
+                    title: "Status",
+                    tabBarIcon: ({ color }) => (
+                        <MaterialIcons name="info-outline" color={color} size={ICON_SIZE} />
+                    ),
+                }}
+            />
+            
+            <Tabs.Screen
                 name="manual"
                 options={{
                     title: "Manual",

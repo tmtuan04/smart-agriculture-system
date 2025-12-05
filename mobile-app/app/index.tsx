@@ -20,7 +20,7 @@ export default function Index() {
 
     if (!ready) return <SplashScreen />;
 
-    if (logged) return <Redirect href="/(tab)/manual" />;
+    if (logged) return <Redirect href="/(tab)/status" />;
 
     return <Redirect href="/(auth)/login" />;
 }

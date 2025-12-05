@@ -44,7 +44,7 @@ export default function AuthScreen() {
 
                     Alert.alert("Đăng nhập thành công", `Xin chào ${data.fullName}`);
                     router.replace({
-                        pathname: "/manual",
+                        pathname: "/status",
                         params: { userId: data._id },
                     });
                 } else {
@@ -60,7 +60,7 @@ export default function AuthScreen() {
                         // Lưu userId
                         await SecureStore.setItemAsync("userId", data._id);
                         router.replace({
-                            pathname: "/manual",
+                            pathname: "/status",
                             params: { userId: data._id },
                         });
                     } else {
