@@ -42,7 +42,6 @@ export default function AuthScreen() {
                     // Lưu userId
                     await SecureStore.setItemAsync("userId", data._id);
 
-                    Alert.alert("Đăng nhập thành công", `Xin chào ${data.fullName}`);
                     router.replace({
                         pathname: "/status",
                         params: { userId: data._id },

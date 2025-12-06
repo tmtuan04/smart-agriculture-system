@@ -9,10 +9,11 @@ export default function Index() {
 
     useEffect(() => {
         const init = async () => {
+            // Cần một hàm validate token nữa
             const token = await getItemAsync("token");
             setLogged(!!token);
 
-            setTimeout(() => setReady(true), 1500);
+            setTimeout(() => setReady(true), 2000);
         };
 
         init();

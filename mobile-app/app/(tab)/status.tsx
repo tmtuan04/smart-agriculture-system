@@ -5,6 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getDeviceByUser } from "@/api/device";
 import { getLatestSensor } from "@/api/sensor";
 import { useLocalSearchParams } from "expo-router";
+import * as SecureStore from "expo-secure-store"
 
 type SensorData = {
     temperature: number;
@@ -16,24 +17,47 @@ export default function StatusScreen() {
     const [sensor, setSensor] = useState<SensorData | null>(null);
     const [deviceId, setDeviceId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-
-    const { userId } = useLocalSearchParams<{ userId: string }>();
     
-    const loadDeviceId = async (userId: string) => {
-        
-        const deviceRes = await getDeviceByUser(userId);
-        if (!deviceRes || !deviceRes.data.length) {
-            Alert.alert("Thông báo", "Bạn chưa có thiết bị");
-            return;
+    // 1. Lấy token + userId từ SecureStore
+    const loadAuthInfo = async () => {
+        const userId = await SecureStore.getItemAsync("userId");
+        const token = await SecureStore.getItemAsync("token");
+
+        console.log(">>> Stored userId:", userId);
+        console.log(">>> Stored token:", token);
+
+        if (!userId || !token) {
+            Alert.alert("Lỗi", "Không tìm thấy thông tin đăng nhập");
+            return null;
         }
 
-        setDeviceId(deviceRes.data[0]._id);
+        return { userId, token };
+    }
+
+    // 2. Lấy deviceId theo userId    
+    const loadDeviceId = async (userId: string) => {
+        try {
+            const deviceRes = await getDeviceByUser(userId);
+
+            if (!deviceRes || !deviceRes?.data.length) {
+                Alert.alert("Thông báo", "Bạn chưa có thiết bị");
+                return null;
+            }
+
+            const id = deviceRes?.data[0]?._id;
+            console.log(">>> Device ID:", id);
+
+            setDeviceId(id);
+            return id;
+        } catch (err) {
+            console.error(err);
+            Alert.alert("Lỗi", "Không thể lấy thiết bị");
+            return null;
+        }
     };
 
-    const loadSensorData = async () => {
-        if (!deviceId){
-            return;
-        }
+    // 3. Lấy sensor data theo deviceId
+    const loadSensorData = async (deviceId: string) => {
         try {
             setLoading(true);
 
@@ -43,7 +67,7 @@ export default function StatusScreen() {
                 return;
             }
 
-            setSensor(res.data);
+            setSensor(res?.data);
         } catch (err) {
             console.error(err);
             Alert.alert("Lỗi mạng", "Không thể kết nối server");
@@ -53,17 +77,16 @@ export default function StatusScreen() {
     };
 
     useEffect(() => {
-        if (userId) {
-            loadDeviceId(userId);
-        }
-    }, [userId]);
+        (async () => {
+            const auth = await loadAuthInfo();
+            if (!auth) return;
 
-    useEffect(() => {
-        if (deviceId) {
-            loadSensorData();
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [deviceId]);
+            const id = await loadDeviceId(auth?.userId);
+            if (!id) return;
+
+            await loadSensorData(id);
+        })();
+    }, []);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -72,11 +95,11 @@ export default function StatusScreen() {
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greetingText}>Chào mừng trở lại!</Text>
-                        <Text style={styles.subGreetingText}>Hệ thống IoT của bạn</Text>
+                        <Text style={styles.subGreetingText}>Từ Minh Tuân</Text>
                     </View>
                     <View style={styles.profileIcon}>
                         <Image 
-                            source={require('@/assets/images/splash-icon.png')}
+                            source={require('@/assets/images/user-icon.png')}
                             style={styles.avatarImage}
                             resizeMode="cover"
                         />
@@ -91,7 +114,7 @@ export default function StatusScreen() {
                         <View style={styles.statusItem}>
                             <MaterialCommunityIcons name="thermometer" size={32} color="#EF5350" /> 
                             <Text style={styles.valueText}>
-                                {sensor ? `${sensor.temperature}°C` : "--"}
+                                {sensor ? `${Number(sensor?.temperature).toFixed(1)}°C` : "--"}
                             </Text>
                             <Text style={styles.labelText}>Nhiệt độ</Text>
                         </View>
@@ -110,7 +133,7 @@ export default function StatusScreen() {
                         <View style={styles.statusItem}>
                             <MaterialCommunityIcons name="water-outline" size={32} color="#4FC3F7" />
                             <Text style={styles.valueText}>
-                                {sensor ? `${sensor.humidity}%` : "--"}
+                                {sensor ? `${Number(sensor?.humidity).toFixed(1)}%` : "--"}
                             </Text>
                             <Text style={styles.labelText}>Độ ẩm KK</Text>
                         </View>
@@ -124,7 +147,7 @@ export default function StatusScreen() {
                         {/* Nút Làm mới */}
                         <TouchableOpacity
                             style={[styles.button, styles.btnRefresh]}
-                            onPress={loadSensorData}
+                            onPress={() => deviceId && loadSensorData(deviceId)}
                             disabled={loading}
                         >
                             <Text style={styles.btnRefreshText}>
@@ -257,7 +280,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     avatarImage: {
-        width: '70%',
-        height: '70%',
+        width: '50%',
+        height: '50%',
     },
 });
