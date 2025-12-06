@@ -4,7 +4,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getDeviceByUser } from "@/api/device";
 import { getLatestSensor } from "@/api/sensor";
-import { useLocalSearchParams } from "expo-router";
 import * as SecureStore from "expo-secure-store"
 
 type SensorData = {
@@ -13,23 +12,28 @@ type SensorData = {
     humidity: number;
 };
 
-export default function StatusScreen() {
+export default function OverviewScreen() {
     const [sensor, setSensor] = useState<SensorData | null>(null);
     const [deviceId, setDeviceId] = useState<string | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     
     // 1. Lấy token + userId từ SecureStore
     const loadAuthInfo = async () => {
         const userId = await SecureStore.getItemAsync("userId");
+        const userName = await SecureStore.getItemAsync("userName");
         const token = await SecureStore.getItemAsync("token");
 
-        console.log(">>> Stored userId:", userId);
+        /*console.log(">>> Stored userId:", userId);
+        console.log(">>> Stored userName:", userName);
         console.log(">>> Stored token:", token);
-
+        */
+       
         if (!userId || !token) {
             Alert.alert("Lỗi", "Không tìm thấy thông tin đăng nhập");
             return null;
         }
+        setUserName(userName);
 
         return { userId, token };
     }
@@ -95,7 +99,7 @@ export default function StatusScreen() {
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greetingText}>Chào mừng trở lại!</Text>
-                        <Text style={styles.subGreetingText}>Từ Minh Tuân</Text>
+                        <Text style={styles.subGreetingText}>{userName}</Text>
                     </View>
                     <View style={styles.profileIcon}>
                         <Image 

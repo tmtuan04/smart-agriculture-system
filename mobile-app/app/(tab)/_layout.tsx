@@ -26,11 +26,11 @@ export default function TabsLayout() {
             }}
         >
             <Tabs.Screen
-                name="status"
+                name="overview"
                 options={{
-                    title: "Status",
+                    title: "Overview",
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="info-outline" color={color} size={ICON_SIZE} />
+                        <MaterialIcons name="home" color={color} size={ICON_SIZE} />
                     ),
                 }}
             />
@@ -49,7 +49,7 @@ export default function TabsLayout() {
                 options={{
                     title: "Auto",
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="directions-car" color={color} size={ICON_SIZE} />
+                        <MaterialIcons name="autorenew" color={color} size={ICON_SIZE} />
                     ),
                 }}
             />
@@ -58,7 +58,16 @@ export default function TabsLayout() {
                 options={{
                     title: "AI Mode",
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="smart-toy" color={color} size={ICON_SIZE} />
+                        <MaterialIcons name="memory" color={color} size={ICON_SIZE} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="reports"
+                options={{
+                    title: "Reports",
+                    tabBarIcon: ({ color }) => (
+                        <MaterialIcons name="assessment" color={color} size={ICON_SIZE} />
                     ),
                 }}
             />

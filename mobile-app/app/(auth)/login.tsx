@@ -41,10 +41,14 @@ export default function AuthScreen() {
                     await SecureStore.setItemAsync("token", data.token); 
                     // Lưu userId
                     await SecureStore.setItemAsync("userId", data._id);
-
+                    // Lưu tên
+                    await SecureStore.setItemAsync("userName", data.fullName);
                     router.replace({
-                        pathname: "/status",
-                        params: { userId: data._id },
+                        pathname: "/overview",
+                        params: { 
+                            userId: data._id,
+                            userName: data.fullName,
+                        },
                     });
                 } else {
                     Alert.alert("Đăng nhập thất bại", data.message);
@@ -58,9 +62,14 @@ export default function AuthScreen() {
                         await SecureStore.setItemAsync("token", data.token);
                         // Lưu userId
                         await SecureStore.setItemAsync("userId", data._id);
+                        // Lưu tên
+                        await SecureStore.setItemAsync("userName", data.fullName);
                         router.replace({
-                            pathname: "/status",
-                            params: { userId: data._id },
+                            pathname: "/overview",
+                            params: { 
+                                userId: data._id,
+                                userName: data.fullName,
+                            },
                         });
                     } else {
                         Alert.alert("Đăng ký thành công", "Bạn có thể đăng nhập ngay bây giờ!");
