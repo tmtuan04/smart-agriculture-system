@@ -145,8 +145,8 @@ void loop() {
     doc["temp"] = temp;
     doc["hum"] = hum;
     doc["soil"] = soilPercent;
-    doc["water"] = waterLevel;
-    doc["bat"] = battery;
+    // doc["water"] = waterLevel;
+    // doc["bat"] = battery;
 
     char buffer[256];
     serializeJson(doc, buffer);
