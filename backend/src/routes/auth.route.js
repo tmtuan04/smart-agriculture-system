@@ -37,10 +37,10 @@ const router = express.Router();
  *             properties:
  *               email:
  *                 type: string
- *                 example: tuan04tm@gmail.com
+ *                 example: test@gmail.com
  *               password:
  *                 type: string
- *                 example: hello123
+ *                 example: 123456
  *     responses:
  *       200:
  *         description: Login successful (JWT token returned)

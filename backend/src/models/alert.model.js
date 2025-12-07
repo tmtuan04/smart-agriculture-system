@@ -20,15 +20,21 @@ const alertSchema = new mongoose.Schema(
             type: Number,
             required: true,
         },
+
+        // Trạng thái kỹ thuật (hệ thống)
         status: {
             type: String,
-            enum: ["unread", "read", "resolved"],
-            default: "unread",
+            enum: ["active", "resolved"],
+            default: "active",
+        },
+
+        // Trạng thái người dùng
+        isRead: {
+            type: Boolean,
+            default: false,
         },
     },
     { timestamps: true }
 );
 
-const Alert = mongoose.model("Alert", alertSchema);
-
-export default Alert;
+export default mongoose.model("Alert", alertSchema);

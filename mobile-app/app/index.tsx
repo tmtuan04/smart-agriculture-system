@@ -21,7 +21,7 @@ export default function Index() {
 
     if (!ready) return <SplashScreen />;
 
-    if (logged) return <Redirect href="/(tab)/status" />;
+    if (logged) return <Redirect href="/(tab)/overview" />;
 
     return <Redirect href="/(auth)/login" />;
 }

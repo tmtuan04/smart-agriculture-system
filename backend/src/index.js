@@ -9,6 +9,7 @@ import { connectDB } from "./lib/db.js";
 import authRoutes from "./routes/auth.route.js";
 import deviceRoutes from "./routes/device.route.js"
 import sensorRoutes from "./routes/sensor.route.js"
+import alertRoutes from "./routes/alert.route.js"
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use(
 app.use("/api/auth", authRoutes);
 app.use("/api/device", deviceRoutes);
 app.use("/api/sensor", sensorRoutes);
+app.use("/api/alerts", alertRoutes);
 
 // Swagger UI
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
