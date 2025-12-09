@@ -1,10 +1,11 @@
 import { Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-export default function ManualScreen() {
+
+export default function AlertScreen() {
     return (
         <SafeAreaView style={styles.container}>
-            <Text style={styles.text}>Manual View</Text>
+            <Text style={styles.text}>Alert View</Text>
         </SafeAreaView>
     );
 }

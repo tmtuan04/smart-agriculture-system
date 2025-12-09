@@ -7,7 +7,7 @@ const ICON_SIZE = 22;
 
 export default function TabsLayout() {
     const colorScheme = useColorScheme() ?? "light";
-
+    
     return (
         <Tabs
             screenOptions={{
@@ -36,29 +36,20 @@ export default function TabsLayout() {
             />
             
             <Tabs.Screen
-                name="manual"
+                name="devices"
                 options={{
-                    title: "Manual",
+                    title: "Devices",
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="handyman" color={color} size={ICON_SIZE} />
+                        <MaterialIcons name="devices" color={color} size={ICON_SIZE} />
                     ),
                 }}
             />
             <Tabs.Screen
-                name="auto"
+                name="alert"
                 options={{
-                    title: "Auto",
+                    title: "Alert",
                     tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="autorenew" color={color} size={ICON_SIZE} />
-                    ),
-                }}
-            />
-            <Tabs.Screen
-                name="ai-mode"
-                options={{
-                    title: "AI Mode",
-                    tabBarIcon: ({ color }) => (
-                        <MaterialIcons name="memory" color={color} size={ICON_SIZE} />
+                        <MaterialIcons name="notifications" color={color} size={ICON_SIZE} />
                     ),
                 }}
             />
@@ -68,6 +59,15 @@ export default function TabsLayout() {
                     title: "Reports",
                     tabBarIcon: ({ color }) => (
                         <MaterialIcons name="assessment" color={color} size={ICON_SIZE} />
+                    ),
+                }}
+            />
+            <Tabs.Screen
+                name="setting"
+                options={{
+                    title: "Setting",
+                    tabBarIcon: ({ color }) => (
+                        <MaterialIcons name="settings" color={color} size={ICON_SIZE} />
                     ),
                 }}
             />

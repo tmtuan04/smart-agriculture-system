@@ -36,7 +36,7 @@ export default function OverviewScreen() {
         setUserName(userName);
 
         return { userId, token };
-    }
+    };
 
     // 2. Lấy deviceId theo userId    
     const loadDeviceId = async (userId: string) => {
@@ -49,7 +49,7 @@ export default function OverviewScreen() {
             }
 
             const id = deviceRes?.data[0]?._id;
-            console.log(">>> Device ID:", id);
+            /*console.log(">>> Device ID:", id);*/
 
             setDeviceId(id);
             return id;

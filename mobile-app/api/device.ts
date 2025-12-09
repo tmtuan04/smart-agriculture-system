@@ -9,3 +9,4 @@ export const getDeviceByUser = async (ownerID: string) => {
 
     return response.json().then((data) => ({ ok: response.ok, data }));
 };
+

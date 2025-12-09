@@ -1,11 +1,11 @@
 import { Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-
-export default function AutoScreen() {
+export default function DevicesScreen() {
+    
     return (
         <SafeAreaView style={styles.container}>
-            <Text style={styles.text}>Auto View</Text>
+            <Text style={styles.text}>Devices View</Text>
         </SafeAreaView>
     );
 }
