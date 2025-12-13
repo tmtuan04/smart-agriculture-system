@@ -6,6 +6,7 @@ import {
     TouchableOpacity,
     Image,
     Alert,
+    Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -14,6 +15,29 @@ import * as SecureStore from "expo-secure-store";
 
 export default function SettingScreen() {
     
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalType, setModalType] = useState<"profile" | "histories" | null>(null);
+    const [userName, setUserName] = useState<string | null>(null);
+    const [userEmail, setUserEmail] = useState<string | null>(null);
+
+    const openModal = async (type: "profile" | "histories") => {
+        setModalType(type);
+
+        if (type === "profile") {
+            const name = await SecureStore.getItemAsync("userName");
+            const email = await SecureStore.getItemAsync("userEmail");
+            setUserName(name);
+            setUserEmail(email);
+        }
+
+        setModalVisible(true);
+    };
+
+    const closeModal = () => {
+        setModalVisible(false);
+        setModalType(null);
+    };
+
     const handleLogout = async () => {
         Alert.alert("Đăng xuất", "Bạn có chắc muốn đăng xuất?", [
             { text: "Hủy", style: "cancel" },
@@ -22,12 +46,12 @@ export default function SettingScreen() {
                 style: "destructive",
                 onPress: async () => {
                     try {
-                        // 1. Xóa token + user id và name
+                        // Xóa token + user id và name
                         await SecureStore.deleteItemAsync("token");
                         await SecureStore.deleteItemAsync("userId");
                         await SecureStore.deleteItemAsync("userName");
+                        await SecureStore.deleteItemAsync("userEmail");
                         
-                        // 2. Quay về index.tsx (auth guard xử lý redirect)
                         router.replace("/");
                     } catch (error) {
                         console.log("Logout error:", error);
@@ -37,7 +61,6 @@ export default function SettingScreen() {
         ]);
     };
 
-    const [userName, setUserName] = useState<string | null>(null);
     useEffect(() => {
         const fetchUserName = async () => {
             const name = await SecureStore.getItemAsync("userName");
@@ -71,13 +94,13 @@ export default function SettingScreen() {
                 <MenuItem
                     icon="account-circle"
                     text="Profile"
-                    onPress={() => router.push("/profile")}
+                    onPress={() => openModal("profile")}
                 />
 
                 <MenuItem
                     icon="history"
                     text="Histories"
-                    onPress={() => router.push("/histories")}
+                    onPress={() => openModal("histories")}
                 />
 
                 <MenuItem
@@ -86,6 +109,54 @@ export default function SettingScreen() {
                     onPress={() => {}}
                 />
             </View>
+            <Modal
+                visible={modalVisible}
+                transparent
+                animationType="fade"
+                onRequestClose={closeModal}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContainer}>
+
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>
+                                {modalType === "profile" ? "Profile" : "Histories"}
+                            </Text>
+
+                            <TouchableOpacity onPress={closeModal}>
+                                <MaterialIcons name="close" size={22} color="#555" />
+                            </TouchableOpacity>
+                        </View>
+
+                        {modalType === "profile" && (
+                            <View style={styles.profileBox}>
+                                
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.label}>User Name</Text>
+                                    <Text style={styles.value}>
+                                        {userName ?? "N/A"}
+                                    </Text>
+                                </View>
+
+                                <View style={styles.infoRow}>
+                                    <Text style={styles.label}>User Email</Text>
+                                    <Text style={styles.value}>
+                                        {userEmail ?? "N/A"}
+                                    </Text>
+                                </View>
+                            </View>
+                        )}
+
+                        {modalType === "histories" && (
+                            <View style={styles.historyBox}>
+                                <MaterialIcons name="history" size={36} color="#777" />
+                                <Text style={styles.historyText}>history</Text>
+                            </View>
+                        )}
+
+                    </View>
+                </View>
+            </Modal>
 
             {/* ===== LOGOUT ===== */}
             <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
@@ -164,12 +235,76 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 12,
         paddingVertical: 12,
-        paddingLeft: 30,
+        paddingLeft: 25,
     },
     itemText: {
         fontSize: 16,
         color: "#334",
     },
+    /* MODAL */
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.45)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+    modalContainer: {
+        width: "90%",
+        minHeight: 240,
+        backgroundColor: "#fff",
+        borderRadius: 20,
+        padding: 20,
+    },
+
+    modalHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: "700",
+        color: "#111",
+    },
+
+    /* PROFILE */
+    profileBox: {
+        backgroundColor: "#F8F9FB",
+        borderRadius: 12,
+        padding: 16,
+    },
+
+    infoRow: {
+        marginBottom: 12,
+    },
+
+    label: {
+        fontSize: 13,
+        color: "#777",
+        marginBottom: 4,
+    },
+
+    value: {
+        fontSize: 16,
+        fontWeight: "600",
+        color: "#111",
+    },
+
+    /* HISTORIES */
+    historyBox: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    historyText: {
+        marginTop: 12,
+        fontSize: 16,
+        color: "#444",
+    },
+
 
     /* LOGOUT */
     logoutBtn: {

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import {
     StyleSheet,
     TextInput,
@@ -43,11 +43,14 @@ export default function AuthScreen() {
                     await SecureStore.setItemAsync("userId", data._id);
                     // Lưu tên
                     await SecureStore.setItemAsync("userName", data.fullName);
+                    // Lưu email
+                    await SecureStore.setItemAsync("userEmail", data.email);
                     router.replace({
                         pathname: "/overview",
                         params: { 
                             userId: data._id,
                             userName: data.fullName,
+                            userEmail: data.email,
                         },
                     });
                 } else {
@@ -64,11 +67,14 @@ export default function AuthScreen() {
                         await SecureStore.setItemAsync("userId", data._id);
                         // Lưu tên
                         await SecureStore.setItemAsync("userName", data.fullName);
+                        // Lưu email
+                        await SecureStore.setItemAsync("userEmail", data.email);
                         router.replace({
                             pathname: "/overview",
                             params: { 
                                 userId: data._id,
                                 userName: data.fullName,
+                                userEmail: data.email,
                             },
                         });
                     } else {
