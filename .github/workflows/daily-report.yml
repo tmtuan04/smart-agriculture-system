@@ -16,10 +16,12 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install dependencies
+      - name: Install backend dependencies
+        working-directory: backend
         run: npm ci
 
       - name: Run daily report job
+        working-directory: backend
         env:
           MONGODB_URL: ${{ secrets.MONGODB_URL }}
-        run: node scripts/generate-daily-report.js
+        run: node src/scripts/generate-daily-report.js
