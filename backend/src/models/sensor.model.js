@@ -30,6 +30,8 @@ const sensorSchema = new mongoose.Schema(
     { timestamps: true }
 );
 
+sensorSchema.index({ deviceId: 1, timestamp: 1 });
+
 const Sensor = mongoose.model("Sensor", sensorSchema);
 
 export default Sensor;
