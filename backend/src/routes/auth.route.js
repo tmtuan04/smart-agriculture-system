@@ -80,7 +80,7 @@ const router = express.Router();
  * @swagger
  * /auth/signup:
  *   post:
- *     summary: User registration (mobile)
+ *     summary: User registration
  *     tags: [Auth]
  *     description: Create a new user account. Returns user info and JWT token for mobile Secure Storage.
  *     requestBody:
@@ -142,28 +142,6 @@ const router = express.Router();
 
 /**
  * @swagger
- * /auth/logout:
- *   post:
- *     summary: Logout user
- *     tags: [Auth]
- *     description: Mobile app should remove the stored JWT token. Backend only returns success message.
- *     responses:
- *       200:
- *         description: Logout Successful
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: Logout Successful
- *       500:
- *         description: Internal Server Error
- */
-
-/**
- * @swagger
  * /auth/me:
  *   get:
  *     summary: Get current user's profile
@@ -205,9 +183,9 @@ const router = express.Router();
  *         description: Internal Server Error
  */
 
-router.post("/signup", signup)
-router.post("/login", login)
-router.post("/logout", logout)
-router.get("/me", authenticate, getMyProfile)
+router.post("/signup", signup);
+router.post("/login", login);
+// router.post("/logout", logout)
+router.get("/me", authenticate, getMyProfile);
 
 export default router;

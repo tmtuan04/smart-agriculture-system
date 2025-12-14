@@ -1,17 +1,89 @@
 # Smart Agriculture System - Backend
 
+| Tình huống            | mode   | auto.enabled | Ý nghĩa                                 |
+| --------------------- | ------ | ------------ | --------------------------------------- |
+| User đang test manual | manual | true         | Auto đã config xong nhưng **chưa dùng** |
+| User chuyển sang auto | auto   | true         | Auto **được kích hoạt & chạy**          |
+| User disable auto     | manual | false        | Auto bị **tắt hoàn toàn**               |
+| AI takeover           | ai     | true         | Auto vẫn bật để fallback                |
 
-Tổng quan kiến trúc của hệ thống
+
+GET    /devices/:id/mode-config
+PATCH  /devices/:id/mode
+PATCH  /devices/:id/manual
+PATCH  /devices/:id/auto
+PATCH  /devices/:id/ai
+
 ```
-ESP32 → MQTT Broker (Mosquitto / EMQX) 
-      → Node.js MQTT Client 
-      → Sensor Controller → MongoDB (sensors)
-                               ↓
-                           Alerts Logic → alerts collection
-                               ↓
-                        Cron Job (daily) → reports collection
-                               ↓
-                        Dashboard / Mobile App
+Mỗi ngày →
+  Đến giờ schedule →
+    Nếu autoConfig.enabled = true →
+      Đọc soil moisture →
+        Nếu soil < soilMin →
+          Bật bơm →
+            Chạy tối đa duration phút →
+              Hoặc dừng sớm nếu soil ≥ soilMax
+```
+
+Có 2 lý do chính giải thích vì sao trong thiết kế alert/notification của hệ thống IoT (như smart agriculture) thường không để nhiều loại type trong một alert, mà thay vào đó tạo một alert cho mỗi loại sensor.
+
+1. Tính rõ ràng & dễ xử lý
+2. Khác nhau về thời điểm & điều kiện kích hoạt
+
+Thực tế sensor không bao giờ lệch cùng lúc 100% "đúng một thời điểm".
+Ví dụ:
+Nhiệt độ có thể vượt ngưỡng lúc 10:01:02,
+độ ẩm vượt ngưỡng lúc 10:01:05,
+độ ẩm đất vượt ngưỡng lúc 10:01:07.
+
+Nêu cơ chế alert gom vào 1 alert, bạn sẽ gặp vấn đề:
+- alert đã gửi cho type 1,
+- khi type 2 vượt ngưỡng → “nhét vào alert cũ hay tạo alert mới?”
+- nếu nhét vào alert cũ → alert mất tính chính xác theo thời gian
+- nếu tạo alert mới → rốt cuộc quay về mô hình nhiều alert
+
+👉 Vì vậy tiêu chuẩn IoT luôn là:
+"One alert = One rule = One abnormal condition"
+
+```mermaid
+flowchart TD
+
+    subgraph Device Layer
+        ESP32["ESP32 Sensors"]
+    end
+
+    subgraph Messaging Layer
+        MQTT["MQTT Broker (Mosquitto / EMQX)"]
+    end
+
+    subgraph Backend Layer
+        MQTTClient["Node.js MQTT Client"]
+        SensorCtrl["Sensor Controller"]
+        AlertLogic["Alert Logic"]
+        CronJob["Cron Job (Daily)"]
+    end
+
+    subgraph Database
+        SensorsDB["sensors collection"]
+        AlertsDB["alerts collection"]
+        ReportsDB["reports collection"]
+    end
+
+    subgraph Frontend
+        App["Mobile App / Dashboard"]
+    end
+
+    ESP32 --> MQTT
+    MQTT --> MQTTClient
+    MQTTClient --> SensorCtrl
+    SensorCtrl --> SensorsDB
+    SensorCtrl --> AlertLogic
+    AlertLogic --> AlertsDB
+    CronJob --> SensorsDB
+    CronJob --> ReportsDB
+    App --> AlertsDB
+    App --> SensorsDB
+    App --> ReportsDB
 
 ```
 

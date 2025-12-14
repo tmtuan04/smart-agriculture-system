@@ -10,6 +10,7 @@ import authRoutes from "./routes/auth.route.js";
 import deviceRoutes from "./routes/device.route.js"
 import sensorRoutes from "./routes/sensor.route.js"
 import alertRoutes from "./routes/alert.route.js"
+import deviceModeRoutes from "./routes/deviceMode.route.js"
 
 const app = express();
 
@@ -30,7 +31,10 @@ app.use(
 
 // Routes
 app.use("/api/auth", authRoutes);
+
 app.use("/api/device", deviceRoutes);
+app.use("/api/device", deviceModeRoutes);
+
 app.use("/api/sensor", sensorRoutes);
 app.use("/api/alerts", alertRoutes);
 
