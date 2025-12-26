@@ -47,27 +47,34 @@ export default function DevicesScreen() {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        let isMounted = true;
         const fetchDevices = async () => {
             try {
                 const ownerID = await SecureStore.getItemAsync("userId");
                 if (!ownerID) return;
 
                 const res = await getDeviceByUser(ownerID);
-                if (res.ok) setDevices(res.data);
+                if (isMounted &&res.ok) setDevices(res.data);
             } catch (err) {
                 console.log("Fetch devices error:", err);
             } finally {
-                setLoading(false);
+                if (isMounted) setLoading(false);
             }
         };
 
         fetchDevices();
+        return () => {
+            isMounted = false;
+        };
     }, []);
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <ActivityIndicator size="large" />
+            <SafeAreaView style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4a90e2" />
+                <Text style={styles.loadingText}>
+                    Getting things ready ...
+                </Text>
             </SafeAreaView>
         );
     }
@@ -177,4 +184,18 @@ const styles = StyleSheet.create({
         paddingVertical: 6,
         borderRadius: 20,
     },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#F4F6FA",
+    },
+
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        fontWeight: "500",
+        color: "#2c3e50",
+    },
+
 });

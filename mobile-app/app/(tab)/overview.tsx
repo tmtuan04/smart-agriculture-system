@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Image, Alert, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getDeviceByUser } from "@/api/device";
 import { getLatestSensor } from "@/api/sensor";
 import * as SecureStore from "expo-secure-store"
+import { router } from "expo-router";
 
 type SensorData = {
     temperature: number;
@@ -148,19 +149,35 @@ export default function OverviewScreen() {
                     <Text style={styles.cardTitle}>Thao tác nhanh</Text>
                     
                     <View style={styles.actionRow}>
-                        {/* Nút Làm mới */}
                         <TouchableOpacity
-                            style={[styles.button, styles.btnRefresh]}
+                            style={[
+                                styles.button,
+                                styles.btnRefresh,
+                                loading && { opacity: 0.7 }
+                            ]}
                             onPress={() => deviceId && loadSensorData(deviceId)}
                             disabled={loading}
                         >
-                            <Text style={styles.btnRefreshText}>
-                            {loading ? "ĐANG TẢI" : "LÀM MỚI"}
-                            </Text>
+                            <View style={styles.loadingRow}>
+                                <Text style={styles.btnRefreshText}>
+                                    {loading ? "ĐANG TẢI" : "LÀM MỚI"}
+                                </Text>
+
+                                {loading && (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="#1976D2"
+                                        style={{ marginLeft: 8 }}
+                                    />
+                                )}
+                            </View>
                         </TouchableOpacity>
 
                         {/* Nút Cảnh báo */}
-                        <TouchableOpacity style={[styles.button, styles.btnAlert]}>
+                        <TouchableOpacity 
+                            style={[styles.button, styles.btnAlert]}
+                            onPress={() => router.push('/(tab)/alert')}
+                        >
                             <Text style={styles.btnAlertText}>CẢNH BÁO</Text>
                         </TouchableOpacity>
                     </View>
@@ -260,6 +277,10 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         gap: 15,
     },
+    loadingRow: {
+        flexDirection: "row",
+        alignItems: "center",
+    },
     button: {
         flex: 1,
         paddingVertical: 14,
@@ -276,11 +297,13 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     btnAlert: {
-        backgroundColor: '#FFF8E1',
+        backgroundColor: "#FFEBEE", 
+        borderWidth: 1,
+        borderColor: "#E53935",
     },
     btnAlertText: {
-        color: '#FBC02D',
-        fontWeight: '600',
+        color: "#E53935",
+        fontWeight: "700",
         fontSize: 14,
     },
     avatarImage: {

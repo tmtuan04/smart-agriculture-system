@@ -53,3 +53,17 @@ export const markAlertAsRead = async (id: string) => {
 
     return json.data;
 };
+
+export const markAlertAsResolved = async (id: string) => {
+    const response = await fetch(`${BASE_URL}/alerts/${id}/resolve`, {
+        method: "PATCH",
+    });
+
+    const json = await response.json();
+
+    if (!json.success) {
+        throw new Error("Failed to mark alert as resolved");
+    }
+
+    return json.data;
+};

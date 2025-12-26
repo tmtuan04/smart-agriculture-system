@@ -9,8 +9,43 @@ import {
     ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { getAlerts, getAlertById, Alert, markAlertAsRead, markAlertAsResolved } from "@/api/alert";
 import { MaterialIcons } from "@expo/vector-icons";
-import { getAlerts, getAlertById, Alert, markAlertAsRead } from "@/api/alert";
+
+const formatDate = (date: string) =>
+    new Date(date).toLocaleDateString("vi-VN", {
+        weekday: "long",
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+    });
+
+const formatTime = (date: string) =>
+    new Date(date).toLocaleTimeString("vi-VN", {
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+
+const typeLabelMap: Record<string, string> = {
+    temperature: "Nhiệt độ",
+    humidity: "Độ ẩm không khí",
+    soilMoisture: "Độ ẩm đất",
+};
+
+const getTypeLabel = (type: string) =>
+    typeLabelMap[type] || type;
+
+const formatValueWithUnit = (type: string, value: number | string) => {
+    switch (type) {
+        case "temperature":
+            return `${value} °C`;
+        case "humidity":
+        case "soilMoisture":
+            return `${value} %`;
+        default:
+            return value;
+    }
+};
 
 export default function AlertScreen() {
     const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -67,21 +102,45 @@ export default function AlertScreen() {
         }
     };
 
+    const handleResolveAlert = async () => {
+        if (!selectedAlert) return;
 
-    const renderIcon = (type: string) => {
-        switch (type) {
-            case "temperature":
-                return <MaterialIcons name="device-thermostat" size={24} color="#e74c3c" />;
-            case "humidity":
-                return <MaterialIcons name="water-drop" size={24} color="#3498db" />;
-            case "soilMoisture":
-                return <MaterialIcons name="grass" size={24} color="#27ae60" />;
-            default:
-                return <MaterialIcons name="warning" size={24} color="#f39c12" />;
+        try {
+            await markAlertAsResolved(selectedAlert._id);
+
+            // update list
+            setAlerts(prev =>
+                prev.map(alert =>
+                    alert._id === selectedAlert._id
+                        ? { ...alert, status: "resolved" }
+                        : alert
+                )
+            );
+
+            // update detail
+            setSelectedAlert(prev =>
+                prev ? { ...prev, status: "resolved" } : prev
+            );
+        } catch (err) {
+            console.error(err);
         }
     };
 
-    const renderItem = ({ item }: { item: Alert }) => (
+    const groupedAlerts = alerts.reduce((acc: any, alert) => {
+        const dateKey = formatDate(alert.createdAt);
+        if (!acc[dateKey]) acc[dateKey] = [];
+        acc[dateKey].push(alert);
+        return acc;
+    }, {});
+
+    const groupedData = Object.keys(groupedAlerts).map(date => ({
+        date,
+        data: groupedAlerts[date],
+    }));
+
+
+
+    const renderAlertItem = ({ item }: { item: Alert }) => (
         <TouchableOpacity
             style={[
                 styles.alertItem,
@@ -89,26 +148,26 @@ export default function AlertScreen() {
             ]}
             onPress={() => openAlertDetail(item._id)}
         >
-            {item.status === "active" && (
-                <View style={styles.activeDot} />
-            )}
-            <View style={styles.iconContainer}>
-                {renderIcon(item.type)}
-            </View>
+            {item.status === "active" && <View style={styles.activeDot} />}
 
             <View style={styles.content}>
                 <Text
                     style={[
-                        styles.message,
+                        styles.timeText,
                         !item.isRead && styles.unreadText,
-                        item.isRead && { color: "#7f8c8d" },
                     ]}
                 >
-                    {item.message}
+                    {formatTime(item.createdAt)}
                 </Text>
 
-                <Text style={styles.subText}>
-                    {item.deviceId.name} • {new Date(item.createdAt).toLocaleString()}
+                <Text
+                    style={[
+                        styles.message,
+                        item.isRead && { color: "#7f8c8d" },
+                    ]}
+                    numberOfLines={2}
+                >
+                    {item.message}
                 </Text>
             </View>
 
@@ -118,60 +177,85 @@ export default function AlertScreen() {
 
     if (loading) {
         return (
-            <SafeAreaView style={styles.center}>
-                <ActivityIndicator size="large" />
+            <SafeAreaView style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4a90e2" />
+                <Text style={styles.loadingText}>
+                    Getting things ready ...
+                </Text>
             </SafeAreaView>
         );
     }
+
 
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.header}>
                 <Text style={styles.headerTitle}>Alerts</Text>
-
-                <View style={styles.headerRight}>
-                    <MaterialIcons name="notifications" size={26} color="#2c3e50" />
-                    {alerts.filter(a => !a.isRead).length > 0 && (
-                        <View style={styles.badge}>
-                            <Text style={styles.badgeText}>
-                                {alerts.filter(a => !a.isRead).length}
-                            </Text>
-                        </View>
-                    )}
-                </View>
             </View>
             <FlatList
-                data={alerts}
-                keyExtractor={(item) => item._id}
-                renderItem={renderItem}
+                data={groupedData}
+                keyExtractor={(item) => item.date}
+                renderItem={({ item }) => (
+                    <View>
+                        {/* DATE TITLE */}
+                        <Text style={styles.dateTitle}>{item.date}</Text>
+
+                        {item.data.map(alert => (
+                            <View key={alert._id}>
+                                {renderAlertItem({ item: alert })}
+                            </View>
+                        ))}
+                    </View>
+                )}
                 contentContainerStyle={{ paddingBottom: 20 }}
             />
 
             {/* Modal chi tiết alert */}
-            <Modal visible={modalVisible} transparent animationType="slide">
+            <Modal visible={modalVisible} transparent animationType="fade">
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
+
+                        {/* CLOSE BUTTON */}
+                        <TouchableOpacity
+                            style={styles.closeIcon}
+                            onPress={() => setModalVisible(false)}
+                        >
+                            <MaterialIcons name="close" size={22} color="#2c3e50" />
+                        </TouchableOpacity>
+
                         {selectedAlert && (
                             <>
                                 <Text style={styles.modalTitle}>Alert Detail</Text>
 
                                 <Text style={styles.detailText}>
-                                    📟 Device: {selectedAlert.deviceId.name}
-                                </Text>
-                                <Text style={styles.detailText}>
-                                    ⚠ Type: {selectedAlert.type}
-                                </Text>
-                                <Text style={styles.detailText}>
-                                    📊 Value: {selectedAlert.value}
-                                </Text>
-                                <Text style={styles.detailText}>
-                                    🔄 Status: {selectedAlert.status}
-                                </Text>
-                                <Text style={styles.detailText}>
-                                    🕒 Time: {new Date(selectedAlert.createdAt).toLocaleString()}
+                                    <Text style={styles.label}>Device:</Text>{" "}
+                                    {selectedAlert.deviceId.name}
                                 </Text>
 
-                                {/* Nút ĐÃ ĐỌC */}
+                                <Text style={styles.detailText}>
+                                    <Text style={styles.label}>Type:</Text>{" "}
+                                    {getTypeLabel(selectedAlert.type)}
+                                </Text>
+
+                                <Text style={styles.detailText}>
+                                    <Text style={styles.label}>Value:</Text>{" "}
+                                    {formatValueWithUnit(
+                                        selectedAlert.type,
+                                        selectedAlert.value
+                                    )}
+                                </Text>
+
+                                <Text style={styles.detailText}>
+                                    <Text style={styles.label}>Status:</Text>{" "}
+                                    {selectedAlert.status}
+                                </Text>
+
+                                <Text style={styles.detailText}>
+                                    <Text style={styles.label}>Time:</Text>{" "}
+                                    {new Date(selectedAlert.createdAt).toLocaleString()}
+                                </Text>
+
+                                {/* ĐÃ ĐỌC */}
                                 {!selectedAlert.isRead && (
                                     <TouchableOpacity
                                         style={styles.readButton}
@@ -181,18 +265,21 @@ export default function AlertScreen() {
                                     </TouchableOpacity>
                                 )}
 
-                                <TouchableOpacity
-                                    style={styles.closeButton}
-                                    onPress={() => setModalVisible(false)}
-                                >
-                                    <Text style={styles.closeText}>Đóng</Text>
-                                </TouchableOpacity>
+                                {/* ĐÃ XỬ LÝ */}
+                                {selectedAlert.isRead && selectedAlert.status === "active" && (
+                                    <TouchableOpacity
+                                        style={styles.resolveButton}
+                                        onPress={handleResolveAlert}
+                                    >
+                                        <Text style={styles.resolveButtonText}>Đã xử lý</Text>
+                                    </TouchableOpacity>
+                                )}
                             </>
                         )}
-
                     </View>
                 </View>
             </Modal>
+
         </SafeAreaView>
     );
 }
@@ -204,10 +291,10 @@ const styles = StyleSheet.create({
         padding: 16,
     },
     header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 16,
+        flexDirection: "row",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginBottom: 16,
     },
     headerTitle: {
         fontSize: 24,
@@ -255,8 +342,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     message: {
-        fontSize: 16,
-        fontWeight: "600",
+        fontSize: 14,
         color: "#2c3e50",
     },
     subText: {
@@ -294,11 +380,13 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: "700",
-        marginBottom: 12,
+        marginBottom: 16,
+        textAlign: "center",
     },
     detailText: {
         fontSize: 14,
-        marginBottom: 8,
+        marginBottom: 10,
+        color: "#34495e",
     },
     closeButton: {
         marginTop: 16,
@@ -312,21 +400,70 @@ const styles = StyleSheet.create({
         fontWeight: "600",
     },
     readButton: {
-    marginTop: 12,
-    backgroundColor: "#27ae60",
-    padding: 12,
-    borderRadius: 8,
-    alignItems: "center",
+        marginTop: 12,
+        backgroundColor: "#27ae60",
+        padding: 12,
+        borderRadius: 8,
+        alignItems: "center",
     },
     readButtonText: {
         color: "#fff",
         fontWeight: "700",
     },
     unreadAlert: {
-    backgroundColor: "#e7f3ff", // xanh nhạt kiểu Facebook
+        backgroundColor: "#c2ddff", 
     },
     unreadText: {
         fontWeight: "700",
         color: "#1d3557",
+    },
+    dateTitle: {
+        fontSize: 14,
+        fontWeight: "700",
+        color: "#34495e",
+        marginBottom: 8,
+        marginTop: 16,
+    },
+
+    timeText: {
+        fontSize: 18,        
+        fontWeight: "700",
+        color: "#2c3e50",
+        marginBottom: 4,
+    },
+    label: {
+        fontWeight: "700",
+        color: "#2c3e50",
+    },
+    closeIcon: {
+        position: "absolute",
+        top: 12,
+        right: 12,
+        zIndex: 10,
+    },
+    loadingContainer: {
+        flex: 1,
+        justifyContent: "center",
+        alignItems: "center",
+        backgroundColor: "#fff",
+    },
+
+    loadingText: {
+        marginTop: 16,
+        fontSize: 16,
+        fontWeight: "500",
+        color: "#2c3e50",
+    },
+    resolveButton: {
+        marginTop: 12,
+        backgroundColor: "#6366f1", // tím xanh (professional)
+        padding: 12,
+        borderRadius: 8,
+        alignItems: "center",
+    },
+
+    resolveButtonText: {
+        color: "#fff",
+        fontWeight: "700",
     },
 });

@@ -235,7 +235,6 @@ const styles = StyleSheet.create({
         alignItems: "center",
         gap: 12,
         paddingVertical: 12,
-        paddingLeft: 25,
     },
     itemText: {
         fontSize: 16,
