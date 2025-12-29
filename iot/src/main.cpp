@@ -21,8 +21,10 @@ const int mqtt_port = atoi(MQTT_PORT);
 // Topic MQTT
 const char* mqtt_topic_pub = MQTT_TOPIC_PUB; // Gửi dữ liệu lên
 const char* mqtt_topic_sub = MQTT_TOPIC_SUB;  // Nhận lệnh về
+const char* mqtt_topic_heartbeat = MQTT_TOPIC_HEARTBEAT; // Gửi tín hiệu sống
 
 const char* DEVICE_ID = "ESP32_SMARTFARM_01";
+
 
 // --- 2. CẤU HÌNH CHÂN (TƯƠNG THÍCH ESP32 30 PIN) ---
 #define DHTPIN 4        // D4
@@ -38,6 +40,13 @@ const char* DEVICE_ID = "ESP32_SMARTFARM_01";
 #define RELAY_ON HIGH    // Relay kích mức thấp
 #define RELAY_OFF LOW
 
+enum SystemMode { MODE_MANUAL = 0, MODE_AUTO = 1, MODE_AI = 2 };
+SystemMode currentMode = MODE_AUTO; // Mặc định khởi động là chạy Auto cục bộ
+
+// CẤU HÌNH HEARTBEAT (TIM MẠCH)
+unsigned long lastServerHeartbeat = 0;
+const unsigned long SERVER_TIMEOUT = 60000;
+
 int soilLowerLimit = 30; // Ngưỡng dưới: Dưới mức này thì tưới
 int soilUpperLimit = 70;
 const float MIN_WATER_LEVEL = 10.0; // Dưới 10% -> Cấm bơm
@@ -52,7 +61,7 @@ unsigned long pumpStartTime = 0; // Lưu thời điểm bắt đầu bật bơm
 bool isPumpRunning = false;
 
 unsigned long lastMsg = 0;
-#define MSG_INTERVAL 2000 
+#define MSG_INTERVAL 5000 
 
 WiFiClientSecure espClient; 
 PubSubClient client(espClient);
@@ -109,8 +118,14 @@ void stopPump(String reason) {
 
 // --- HÀM CALLBACK (XỬ LÝ LỆNH TỪ MQTT) ---
 void callback(char* topic, byte* payload, unsigned int length) {
+  String topicStr = String(topic);
   String message;
   for (int i = 0; i < length; i++) message += (char)payload[i];
+  if (topicStr == mqtt_topic_heartbeat) {
+      lastServerHeartbeat = millis();
+      Serial.println("❤️"); // Uncomment để debug nếu cần
+      return; // <--- QUAN TRỌNG: Return ngay, không chạy tiếp code JSON bên dưới
+  }
   
   Serial.print("Nhan lenh: "); Serial.println(message);
 
@@ -119,24 +134,27 @@ void callback(char* topic, byte* payload, unsigned int length) {
   if (error) return;
 
   // 1. Chuyển chế độ
+  // 2. CHUYỂN CHẾ ĐỘ (MODE SWITCHING)
   if (doc.containsKey("mode")) {
-    const char* newMode = doc["mode"];
-    bool nextAutoMode = (strcmp(newMode, "auto") == 0);
+    const char* newModeStr = doc["mode"];
+    SystemMode nextMode = currentMode;
 
-    // Chỉ xử lý nếu chế độ thực sự thay đổi
-    if (nextAutoMode != isAutoMode) {
-      isAutoMode = nextAutoMode; // Cập nhật chế độ mới
-      
-      // Tắt bơm ngay lập tức để đảm bảo an toàn khi chuyển giao logic
-      stopPump("Mode Changed"); 
-      
-      Serial.print("-> System Mode switched to: ");
-      Serial.println(isAutoMode ? "AUTO" : "MANUAL");
+    if (strcmp(newModeStr, "auto") == 0) nextMode = MODE_AUTO;
+    else if (strcmp(newModeStr, "manual") == 0) nextMode = MODE_MANUAL;
+    else if (strcmp(newModeStr, "ai") == 0) {
+        nextMode = MODE_AI;
+        // Khi vừa chuyển sang AI, coi như vừa nhận heartbeat để không bị timeout ngay
+        lastServerHeartbeat = millis(); 
+    }
+
+    if (nextMode != currentMode) {
+      currentMode = nextMode;
+      stopPump("Mode Changed"); // An toàn: Dừng bơm khi chuyển logic
+      Serial.printf("-> Chuyen sang che do: %s\n", newModeStr);
     }
   }
-
   // 2. Cập nhật ngưỡng (CHỈ KHI ĐANG Ở CHẾ ĐỘ AUTO)
-  if (isAutoMode) {
+  if (currentMode == MODE_AUTO) {
     bool updated = false;
     int tempLower = soilLowerLimit;
     int tempUpper = soilUpperLimit;
@@ -166,15 +184,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
       }
     }
   } else {
-    // Nếu đang ở Manual mà gửi lệnh đổi ngưỡng
+    // Nếu đang ở Manual/AI mà gửi lệnh đổi ngưỡng
     if (doc.containsKey("lower") || doc.containsKey("upper")) {
       Serial.println("Tu choi: Phai chuyen sang AUTO moi co the doi nguong.");
     }
   }
 
   // 3. Bật tắt bơm (Chỉ Manual) - Giữ nguyên logic của bạn
-  if (!isAutoMode && doc.containsKey("pump")) {
+  if ((currentMode == MODE_MANUAL || currentMode == MODE_AI) && doc.containsKey("pump")) {
     const char* cmd = doc["pump"];
+    
+    // Check nước
     float dist = getDistance();
     float level = (dist < heightTankWater) ? (1.0 - dist/heightTankWater)*100 : 0;
     
@@ -182,11 +202,15 @@ void callback(char* topic, byte* payload, unsigned int length) {
        Serial.println("CANH BAO: Be can nuoc!");
     } else {
        if (strcmp(cmd, "on") == 0) {
-          digitalWrite(RELAY_PIN, RELAY_ON);
-          pumpStatus = "ON (Manual)";
+          if (!isPumpRunning) {
+              digitalWrite(RELAY_PIN, RELAY_ON);
+              pumpStatus = (currentMode == MODE_AI) ? "ON (AI)" : "ON (Manual)";
+              isPumpRunning = true;
+              pumpStartTime = millis(); 
+              Serial.println("-> Bat bom (Remote Command)");
+          }
        } else if (strcmp(cmd, "off") == 0) {
-          digitalWrite(RELAY_PIN, RELAY_OFF);
-          pumpStatus = "OFF (Manual)";
+          stopPump((currentMode == MODE_AI) ? "Off by AI" : "Off by User");
        }
     }
   }
@@ -215,6 +239,7 @@ void reconnect() {
     if (client.connect(clientId.c_str(), mqtt_user, mqtt_pass)) {
       Serial.println("CONNECTED");
       client.subscribe(mqtt_topic_sub); // Đăng ký nhận lệnh
+      client.subscribe(mqtt_topic_heartbeat);
     } else {
       Serial.print("failed, rc="); Serial.print(client.state());
       delay(5000);
@@ -253,6 +278,18 @@ void loop() {
   timeClient.update();
 
   unsigned long now = millis();
+
+  // --- LOGIC BẢO VỆ HEARTBEAT (MỚI) ---
+  // Nếu đang ở Mode AI mà mất kết nối Server quá 60s -> Đá về Mode Auto
+  if (currentMode == MODE_AI) {
+      if (now - lastServerHeartbeat > SERVER_TIMEOUT) {
+          Serial.println("⚠️ MẤT KẾT NỐI SERVER (HEARTBEAT TIMEOUT)!");
+          stopPump("Lost Heartbeat"); // Dừng ngay lập tức
+          currentMode = MODE_AUTO;    // Chuyển về tự hành
+          Serial.println("-> Fallback: Chuyen ve che do AUTO.");
+      }
+  }
+
   if (now - lastMsg > MSG_INTERVAL) {
     lastMsg = now;
 
@@ -278,41 +315,44 @@ void loop() {
         pumpStatus = "OFF (Can Nuoc)";
         isPumpRunning = false;
     } 
-    else if (isAutoMode) {
-        // 1. Logic Bật Bơm
-        if (soilPercent < soilLowerLimit && !isPumpRunning) {
-            digitalWrite(RELAY_PIN, RELAY_ON);
-            pumpStatus = "ON (Auto)";
-            isPumpRunning = true;
-            pumpStartTime = millis(); // Lưu lại thời điểm bắt đầu
-            Serial.println("-> Bat dau tuoi...");
-        }
-
-        // 2. Logic Tắt Bơm (Đạt ngưỡng HOẶC Quá thời gian)
-        if (isPumpRunning) {
-            unsigned long elapsed = (millis() - pumpStartTime) / 1000; // Đổi sang giây
-
-          if (soilPercent > soilUpperLimit) {
-              digitalWrite(RELAY_PIN, RELAY_OFF);
-              pumpStatus = "OFF (Auto - Du am)";
-              isPumpRunning = false;
-              Serial.println("-> Dung tuoi: Dat nguong am.");
-            } 
-          else if (elapsed >= pumpMaxDuration) {
-              digitalWrite(RELAY_PIN, RELAY_OFF);
-              pumpStatus = "OFF (Auto - Qua gio)";
-              isPumpRunning = false;
-              Serial.printf("-> Dung tuoi: Da chay du %d giay.\n", pumpMaxDuration);
+    else {
+        // --- LOGIC MODE AUTO (CỤC BỘ) ---
+        if (currentMode == MODE_AUTO) {
+            if (soilPercent < soilLowerLimit && !isPumpRunning) {
+                digitalWrite(RELAY_PIN, RELAY_ON);
+                pumpStatus = "ON (Auto)";
+                isPumpRunning = true;
+                pumpStartTime = millis();
+                Serial.println("-> Auto Start Pump");
+            }
+            else if (isPumpRunning && soilPercent > soilUpperLimit) {
+                stopPump("Auto - Du am");
             }
         }
-      }
+        
+        // --- LOGIC MODE AI & MANUAL ---
+        // (Không làm gì ở đây cả, vì việc Bật/Tắt đã được xử lý trong callback khi nhận lệnh)
+        
+        // --- LOGIC BẢO VỆ CHUNG (MAX DURATION) ---
+        // Áp dụng cho TẤT CẢ các mode để tránh bơm chạy vô tận nếu lỗi
+        if (isPumpRunning) {
+            unsigned long elapsed = (millis() - pumpStartTime) / 1000;
+            if (elapsed >= pumpMaxDuration) {
+                stopPump("Qua thoi gian toi da (Safety)");
+            }
+        }
+    }
 
     // 3. Gửi JSON
     StaticJsonDocument<512> doc;
     doc["device_id"] = DEVICE_ID;
     doc["timestamp"] = getFullTimestamp(); // Định dạng HH:MM:SS
     doc["epoch"] = timeClient.getEpochTime();
-    doc["mode"] = isAutoMode ? "AUTO" : "MANUAL";
+    switch(currentMode) {
+        case MODE_MANUAL: doc["mode"] = "MANUAL"; break;
+        case MODE_AUTO:   doc["mode"] = "AUTO"; break;
+        case MODE_AI:     doc["mode"] = "AI"; break;
+    }
     doc["temp"] = temp;
     doc["hum"] = hum;
     doc["soil"] = soilPercent;
