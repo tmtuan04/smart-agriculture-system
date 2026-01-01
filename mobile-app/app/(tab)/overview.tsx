@@ -13,12 +13,15 @@ type SensorData = {
     humidity: number;
 };
 
+type ModeType = "MANUAL" | "AUTO" | "AI";
+
 export default function OverviewScreen() {
     const [sensor, setSensor] = useState<SensorData | null>(null);
     const [deviceId, setDeviceId] = useState<string | null>(null);
     const [userName, setUserName] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
-    
+    const [mode, setMode] = useState<ModeType>("MANUAL");
+
     // 1. Lấy token + userId từ SecureStore
     const loadAuthInfo = async () => {
         const userId = await SecureStore.getItemAsync("userId");
@@ -29,7 +32,7 @@ export default function OverviewScreen() {
         console.log(">>> Stored userName:", userName);
         console.log(">>> Stored token:", token);
         */
-       
+
         if (!userId || !token) {
             Alert.alert("Lỗi", "Không tìm thấy thông tin đăng nhập");
             return null;
@@ -96,14 +99,14 @@ export default function OverviewScreen() {
     return (
         <SafeAreaView style={styles.container}>
             <ScrollView contentContainerStyle={styles.scrollContent}>
-                
+
                 <View style={styles.header}>
                     <View>
                         <Text style={styles.greetingText}>Chào mừng trở lại!</Text>
                         <Text style={styles.subGreetingText}>{userName}</Text>
                     </View>
                     <View style={styles.profileIcon}>
-                        <Image 
+                        <Image
                             source={require('@/assets/images/user-icon.png')}
                             style={styles.avatarImage}
                             resizeMode="cover"
@@ -111,22 +114,52 @@ export default function OverviewScreen() {
                     </View>
                 </View>
 
+                {/* View Trạng thái hiệnt tại */}
                 <View style={styles.card}>
-                    <Text style={styles.cardTitle}>Trạng thái hiện tại</Text>
-                    
+                    {/* Header card */}
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardTitle}>Trạng thái hiện tại</Text>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.refreshInlineBtn,
+                                loading && { opacity: 0.7 }
+                            ]}
+                            onPress={() => deviceId && loadSensorData(deviceId)}
+                            disabled={loading}
+                        >
+                            <View style={styles.loadingRow}>
+                                <MaterialCommunityIcons
+                                    name="refresh"
+                                    size={18}
+                                    color="#1976D2"
+                                />
+                                <Text style={styles.refreshInlineText}>
+                                    {loading ? "ĐANG TẢI" : "LÀM MỚI"}
+                                </Text>
+
+                                {loading && (
+                                    <ActivityIndicator
+                                        size="small"
+                                        color="#1976D2"
+                                        style={{ marginLeft: 6 }}
+                                    />
+                                )}
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Nội dung trạng thái */}
                     <View style={styles.statusRow}>
-                        {/* Cột 1: Nhiệt độ */}
                         <View style={styles.statusItem}>
-                            <MaterialCommunityIcons name="thermometer" size={32} color="#EF5350" /> 
+                            <MaterialCommunityIcons name="thermometer" size={32} color="#EF5350" />
                             <Text style={styles.valueText}>
-                                {sensor ? `${Number(sensor?.temperature).toFixed(1)}°C` : "--"}
+                                {sensor ? `${Number(sensor.temperature).toFixed(1)}°C` : "--"}
                             </Text>
                             <Text style={styles.labelText}>Nhiệt độ</Text>
                         </View>
 
-                        {/* Cột 2: Độ ẩm đất */}
                         <View style={styles.statusItem}>
-                            {/* Dùng icon 'grass' hoặc 'sprout' cho đất */}
                             <MaterialCommunityIcons name="grass" size={32} color="#66BB6A" />
                             <Text style={styles.valueText}>
                                 {sensor ? `${sensor.soilMoisture}%` : "--"}
@@ -134,20 +167,101 @@ export default function OverviewScreen() {
                             <Text style={styles.labelText}>Độ ẩm đất</Text>
                         </View>
 
-                        {/* Cột 3: Độ ẩm không khí */}
                         <View style={styles.statusItem}>
                             <MaterialCommunityIcons name="water-outline" size={32} color="#4FC3F7" />
                             <Text style={styles.valueText}>
-                                {sensor ? `${Number(sensor?.humidity).toFixed(1)}%` : "--"}
+                                {sensor ? `${Number(sensor.humidity).toFixed(1)}%` : "--"}
                             </Text>
                             <Text style={styles.labelText}>Độ ẩm KK</Text>
                         </View>
                     </View>
                 </View>
-                
+
+
+                {/* View theo mode */}
                 <View style={styles.card}>
+                    <Text style={styles.cardTitle}>Chế độ hoạt động</Text>
+
+                    {/* Tabs */}
+                    <View style={styles.modeTabRow}>
+                        <TouchableOpacity
+                            style={[
+                                styles.modeTab,
+                                mode === "MANUAL" && styles.modeTabActive
+                            ]}
+                            onPress={() => setMode("MANUAL")}
+                        >
+                            <Text
+                                style={[
+                                    styles.modeTabText,
+                                    mode === "MANUAL" && styles.modeTabTextActive
+                                ]}
+                            >
+                                Manual
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.modeTab,
+                                mode === "AUTO" && styles.modeTabActive
+                            ]}
+                            onPress={() => setMode("AUTO")}
+                        >
+                            <Text
+                                style={[
+                                    styles.modeTabText,
+                                    mode === "AUTO" && styles.modeTabTextActive
+                                ]}
+                            >
+                                Auto
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.modeTab,
+                                mode === "AI" && styles.modeTabActive
+                            ]}
+                            onPress={() => setMode("AI")}
+                        >
+                            <Text
+                                style={[
+                                    styles.modeTabText,
+                                    mode === "AI" && styles.modeTabTextActive
+                                ]}
+                            >
+                                AI Mode
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Content theo mode */}
+                    <View style={styles.modeContent}>
+                        {mode === "MANUAL" && (
+                            <Text style={styles.modeText}>
+                                Điều khiển thủ công thiết bị (bật/tắt bơm, quạt…)
+                            </Text>
+                        )}
+
+                        {mode === "AUTO" && (
+                            <Text style={styles.modeText}>
+                                Hệ thống tự động dựa theo ngưỡng nhiệt độ và độ ẩm
+                            </Text>
+                        )}
+
+                        {mode === "AI" && (
+                            <Text style={styles.modeText}>
+                                AI phân tích dữ liệu cảm biến và tối ưu tưới tiêu 🌱
+                            </Text>
+                        )}
+                    </View>
+                </View>
+
+                {/* View thao tác nhanh */}
+                {/* <View style={styles.card}>
                     <Text style={styles.cardTitle}>Thao tác nhanh</Text>
-                    
+
                     <View style={styles.actionRow}>
                         <TouchableOpacity
                             style={[
@@ -173,15 +287,14 @@ export default function OverviewScreen() {
                             </View>
                         </TouchableOpacity>
 
-                        {/* Nút Cảnh báo */}
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.button, styles.btnAlert]}
                             onPress={() => router.push('/(tab)/alert')}
                         >
                             <Text style={styles.btnAlertText}>CẢNH BÁO</Text>
                         </TouchableOpacity>
                     </View>
-                </View>
+                </View> */}
 
             </ScrollView>
         </SafeAreaView>
@@ -197,7 +310,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 20,
     },
-    
+
     // Header Styles
     header: {
         flexDirection: 'row',
@@ -251,7 +364,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         // space-between sẽ đẩy các phần tử ra xa nhau, 
         // dùng space-around hoặc space-evenly sẽ đẹp hơn khi có 3 cột
-        justifyContent: 'space-between', 
+        justifyContent: 'space-between',
         alignItems: 'flex-start',
     },
     statusItem: {
@@ -290,6 +403,8 @@ const styles = StyleSheet.create({
     },
     btnRefresh: {
         backgroundColor: '#E3F2FD',
+        borderWidth: 1,
+        borderColor: "#1976D2",
     },
     btnRefreshText: {
         color: '#1976D2',
@@ -297,7 +412,7 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     btnAlert: {
-        backgroundColor: "#FFEBEE", 
+        backgroundColor: "#FFEBEE",
         borderWidth: 1,
         borderColor: "#E53935",
     },
@@ -309,5 +424,66 @@ const styles = StyleSheet.create({
     avatarImage: {
         width: '50%',
         height: '50%',
+    },
+    // Mode styles
+    modeTabRow: {
+        flexDirection: "row",
+        backgroundColor: "#F1F3F5",
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 16,
+    },
+    modeTab: {
+        flex: 1,
+        paddingVertical: 10,
+        borderRadius: 10,
+        alignItems: "center",
+    },
+    modeTabActive: {
+        backgroundColor: "#FFFFFF",
+        shadowColor: "#000",
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    modeTabText: {
+        fontSize: 14,
+        fontWeight: "600",
+        color: "#757575",
+    },
+    modeTabTextActive: {
+        color: "#1976D2",
+    },
+    modeContent: {
+        paddingVertical: 8,
+    },
+    modeText: {
+        fontSize: 14,
+        color: "#424242",
+        lineHeight: 20,
+    },
+    cardHeader: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "baseline",
+        marginBottom: 16,
+    },
+
+    refreshInlineBtn: {
+        flexDirection: "row",
+        alignItems: "center",
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        backgroundColor: "#E3F2FD",
+        borderWidth: 1,
+        borderColor: "#1976D2",
+    },
+
+    refreshInlineText: {
+        marginLeft: 6,
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#1976D2",
     },
 });
