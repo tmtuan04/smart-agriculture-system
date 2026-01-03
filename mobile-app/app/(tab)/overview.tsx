@@ -26,7 +26,7 @@ export default function OverviewScreen() {
     const [loading, setLoading] = useState(false);
     const [mode, setMode] = useState<ModeType>("MANUAL");
 
-    /* ===================== AUTH ===================== */
+    /* AUTH */
     const loadAuthInfo = async () => {
         const userId = await SecureStore.getItemAsync("userId");
         const name = await SecureStore.getItemAsync("userName");
