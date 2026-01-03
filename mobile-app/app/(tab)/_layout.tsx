@@ -1,7 +1,6 @@
 import { Tabs } from "expo-router";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
 import { useColorScheme } from "@/hooks/use-color-scheme";
-import { Colors } from "@/constants/theme";
 import { MaterialIcons } from "@expo/vector-icons";
 
 const ICON_SIZE = 22;
@@ -25,7 +24,7 @@ export default function TabsLayout() {
     );
 }
 
-/* ---------------- CUSTOM TAB BAR ---------------- */
+/*  CUSTOM TAB BAR  */
 
 function CustomTabBar({ state, descriptors, navigation, colorScheme }: any) {
     return (
@@ -49,9 +48,7 @@ function CustomTabBar({ state, descriptors, navigation, colorScheme }: any) {
                         }
                     };
 
-                    const color = isFocused
-                        ? Colors[colorScheme].tint
-                        : "#757575";
+                    const color = isFocused ? "#2F80ED" : "#757575";
 
                     return (
                         <TouchableOpacity
@@ -83,7 +80,7 @@ function CustomTabBar({ state, descriptors, navigation, colorScheme }: any) {
     );
 }
 
-/* ---------------- ICON MAP ---------------- */
+/*  ICON MAP  */
 
 function getIconName(routeName: string) {
     switch (routeName) {

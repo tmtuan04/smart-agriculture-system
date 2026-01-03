@@ -1,21 +1,29 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { manualPump } from "@/api/pump";
 
 export type ModeType = "MANUAL" | "AUTO" | "AI";
 
 type Props = {
-    mode: ModeType;
+    deviceId: string;
+    activeMode: ModeType;
+    selectedMode: ModeType;
     onChange: (mode: ModeType) => void;
 };
 
-export const ModeCard = ({ mode, onChange }: Props) => {
+export const ModeCard = ({
+    deviceId,
+    activeMode,
+    selectedMode,
+    onChange,
+}: Props) => {
     const [isWatering, setIsWatering] = useState(false);
     const [elapsedMs, setElapsedMs] = useState(0);
 
     useEffect(() => {
         let interval: number | null = null;
 
-        if (isWatering) {
+        if (isWatering && activeMode === "MANUAL") {
             const start = Date.now() - elapsedMs;
             interval = setInterval(() => {
                 setElapsedMs(Date.now() - start);
@@ -23,7 +31,7 @@ export const ModeCard = ({ mode, onChange }: Props) => {
         }
 
         return () => interval && clearInterval(interval);
-    }, [isWatering]);
+    }, [isWatering, activeMode, elapsedMs]);
 
     const formatTime = (ms: number) => {
         const m = Math.floor(ms / 60000);
@@ -36,34 +44,103 @@ export const ModeCard = ({ mode, onChange }: Props) => {
         )}.${String(ms2).padStart(2, "0")}`;
     };
 
+    const handleTogglePump = async () => {
+        if (activeMode !== "MANUAL") return;
+
+        const action = isWatering ? "off" : "on";
+
+        const res = await manualPump(deviceId, action);
+
+        console.log(res)
+
+        if (!res.ok) {
+            alert("Không thể điều khiển bơm");
+            return;
+        }
+
+        if (action === "on") {
+            setIsWatering(true);
+        } else {
+            setIsWatering(false);
+            alert("Dừng tưới thành công");
+        }
+    };
+
+    const handleReset = async () => {
+        if (activeMode !== "MANUAL") return;
+
+        const res = await manualPump(deviceId, "off");
+
+        if (res.ok) {
+            setIsWatering(false);
+            setElapsedMs(0);
+            alert("Reset và dừng tưới thành công");
+        } else {
+            alert("Không thể dừng bơm");
+        }
+    };
+
     return (
         <View style={styles.card}>
-            <Text style={styles.title}>Chế độ hoạt động</Text>
+            {/* ===== HEADER ===== */}
+            <View style={styles.headerRow}>
+                <Text style={styles.title}>Chế độ hoạt động</Text>
 
-            {/* Tabs */}
+                {/* Badge lấy từ API – KHÔNG đổi theo tab */}
+                <View style={styles.modeBadge}>
+                    <View
+                        style={[
+                            styles.modeDot,
+                            { backgroundColor: "#43A047" },
+                        ]}
+                    />
+                    <Text style={styles.modeBadgeText}>
+                        {activeMode}
+                    </Text>
+                </View>
+            </View>
+
             <View style={styles.tabs}>
-                {["MANUAL", "AUTO", "AI"].map((m) => (
+                {(["MANUAL", "AUTO", "AI"] as ModeType[]).map((m) => (
                     <TouchableOpacity
                         key={m}
-                        style={[styles.tab, mode === m && styles.activeTab]}
-                        onPress={() => onChange(m as ModeType)}
+                        style={[
+                            styles.tab,
+                            selectedMode === m && styles.activeTab,
+                        ]}
+                        onPress={() => onChange(m)}
                     >
-                        <Text style={[styles.tabText, mode === m && styles.activeText]}>
+                        <Text
+                            style={[
+                                styles.tabText,
+                                selectedMode === m && styles.activeText,
+                            ]}
+                        >
                             {m}
                         </Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
+            {/* ===== CONTENT ===== */}
             <View style={styles.content}>
-                {mode === "MANUAL" && (
+                {selectedMode === "MANUAL" && activeMode !== "MANUAL" && (
+                    <Text style={styles.modeText}>
+                        Chỉ có thể điều khiển khi hệ thống đang ở chế độ MANUAL
+                    </Text>
+                )}
+                {selectedMode === "MANUAL" && (
                     <View style={styles.manualWrapper}>
                         {/* Status */}
                         <View style={styles.statusBadge}>
                             <View
                                 style={[
                                     styles.dot,
-                                    { backgroundColor: isWatering ? "#43A047" : "#BDBDBD" },
+                                    {
+                                        backgroundColor: isWatering
+                                            ? "#43A047"
+                                            : "#BDBDBD",
+                                    },
                                 ]}
                             />
                             <Text style={styles.statusText}>
@@ -72,18 +149,19 @@ export const ModeCard = ({ mode, onChange }: Props) => {
                         </View>
 
                         {/* Timer */}
-                        <Text style={styles.timer}>{formatTime(elapsedMs)}</Text>
+                        <Text style={styles.timer}>
+                            {formatTime(elapsedMs)}
+                        </Text>
 
                         {/* Controls */}
                         <View style={styles.controlRow}>
-                            {/* Play / Pause */}
                             <View style={styles.controlItem}>
                                 <TouchableOpacity
                                     style={[
                                         styles.circleBtn,
                                         isWatering && styles.activeCircle,
                                     ]}
-                                    onPress={() => setIsWatering(!isWatering)}
+                                    onPress={handleTogglePump}
                                 >
                                     <Text style={styles.circleIcon}>
                                         {isWatering ? "| |" : "▶"}
@@ -95,31 +173,29 @@ export const ModeCard = ({ mode, onChange }: Props) => {
                                 </Text>
                             </View>
 
-                            {/* Reset */}
                             <View style={styles.controlItem}>
                                 <TouchableOpacity
                                     style={styles.circleBtn}
-                                    onPress={() => {
-                                        setIsWatering(false);
-                                        setElapsedMs(0);
-                                    }}
+                                    onPress={handleReset}
                                 >
                                     <Text style={styles.circleIcon}>■</Text>
                                 </TouchableOpacity>
 
-                                <Text style={styles.controlLabel}>Reset</Text>
+                                <Text style={styles.controlLabel}>
+                                    Reset
+                                </Text>
                             </View>
                         </View>
                     </View>
                 )}
 
-                {mode === "AUTO" && (
+                {selectedMode === "AUTO" && (
                     <Text style={styles.modeText}>
                         Hệ thống tự động theo ngưỡng nhiệt độ & độ ẩm
                     </Text>
                 )}
 
-                {mode === "AI" && (
+                {selectedMode === "AI" && (
                     <Text style={styles.modeText}>
                         AI phân tích dữ liệu và tối ưu tưới tiêu 🌱
                     </Text>
@@ -136,10 +212,38 @@ const styles = StyleSheet.create({
         padding: 16,
     },
 
+    headerRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 16,
+    },
+
     title: {
         fontSize: 16,
         fontWeight: "bold",
-        marginBottom: 16,
+    },
+
+    modeBadge: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F5F7FA",
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+
+    modeDot: {
+        width: 8,
+        height: 8,
+        borderRadius: 4,
+        marginRight: 6,
+    },
+
+    modeBadgeText: {
+        fontSize: 12,
+        fontWeight: "600",
+        color: "#616161",
     },
 
     tabs: {
@@ -179,7 +283,6 @@ const styles = StyleSheet.create({
         color: "#424242",
     },
 
-    /* ===== MANUAL ===== */
     manualWrapper: {
         alignItems: "center",
         paddingTop: 36,
@@ -241,6 +344,7 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         color: "#1976D2",
     },
+
     controlItem: {
         alignItems: "center",
     },

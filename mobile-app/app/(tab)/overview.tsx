@@ -5,10 +5,12 @@ import * as SecureStore from "expo-secure-store";
 
 import { getDeviceByUser } from "@/api/device";
 import { getLatestSensor } from "@/api/sensor";
+import { getCurrentMode } from "@/api/deviceMode";
 
 import { HeaderSection } from "./components/HeaderSection";
 import { CurrentStatusCard } from "./components/CurrentStatusCard";
 import { ModeCard, ModeType } from "./components/ModeCard";
+import { mapBackendModeToUI } from "@/utils";
 
 type SensorData = {
     temperature: number;
@@ -22,9 +24,11 @@ type SensorData = {
 export default function OverviewScreen() {
     const [userName, setUserName] = useState<string | null>(null);
     const [deviceId, setDeviceId] = useState<string | null>(null);
+    const [deviceIdDb, setDeviceIdDb] = useState<string>("");
     const [sensor, setSensor] = useState<SensorData | null>(null);
     const [loading, setLoading] = useState(false);
-    const [mode, setMode] = useState<ModeType>("MANUAL");
+    const [activeMode, setActiveMode] = useState<ModeType>("MANUAL"); // từ API
+    const [selectedMode, setSelectedMode] = useState<ModeType>("MANUAL"); // UI
 
     /* AUTH */
     const loadAuthInfo = async () => {
@@ -41,7 +45,7 @@ export default function OverviewScreen() {
         return { userId, token };
     };
 
-    /* ===================== DEVICE ===================== */
+    /*  DEVICE  */
     const loadDeviceId = async (userId: string) => {
         try {
             const res = await getDeviceByUser(userId);
@@ -51,8 +55,11 @@ export default function OverviewScreen() {
                 return null;
             }
 
-            const id = res.data[0]._id;
+            const id = res.data[0].deviceId;
+            const idDb = res.data[0]._id;
+
             setDeviceId(id);
+            setDeviceIdDb(idDb);
             return id;
         } catch (error) {
             console.error(error);
@@ -61,7 +68,7 @@ export default function OverviewScreen() {
         }
     };
 
-    /* ===================== SENSOR ===================== */
+    /*  SENSOR  */
     const loadSensorData = async (deviceId: string) => {
         try {
             setLoading(true);
@@ -81,7 +88,17 @@ export default function OverviewScreen() {
         }
     };
 
-    /* ===================== INIT ===================== */
+    const loadCurrentMode = async (deviceId: string) => {
+        const res = await getCurrentMode(deviceId);
+        if (!res.ok) return;
+
+        const backendMode = mapBackendModeToUI(res.data.mode);
+
+        setActiveMode(backendMode);
+        setSelectedMode(backendMode); // sync ban đầu
+    };
+
+    /* INIT */
     useEffect(() => {
         (async () => {
             const auth = await loadAuthInfo();
@@ -91,6 +108,7 @@ export default function OverviewScreen() {
             if (!id) return;
 
             await loadSensorData(id);
+            await loadCurrentMode(id);
         })();
     }, []);
 
@@ -109,8 +127,10 @@ export default function OverviewScreen() {
 
                 {/* Mode */}
                 <ModeCard
-                    mode={mode}
-                    onChange={setMode}
+                    deviceId={deviceIdDb}
+                    activeMode={activeMode}
+                    selectedMode={selectedMode}
+                    onChange={setSelectedMode}
                 />
             </ScrollView>
         </SafeAreaView>
