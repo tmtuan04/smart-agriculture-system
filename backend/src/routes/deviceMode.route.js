@@ -29,14 +29,14 @@ const router = express.Router();
  *         description: Device ID
  *         schema:
  *           type: string
- *           example: 67ac1234ef901234abcd5678
+ *           example: 6935513b52ef8c9bda001fcc
  *     responses:
  *       200:
  *         description: Device mode configuration
  *         content:
  *           application/json:
  *             example:
- *               deviceId: 67ac1234ef901234abcd5678
+ *               deviceId: 6935513b52ef8c9bda001fcc
  *               mode: manual
  *               manualConfig:
  *                 isPumpOn: true

@@ -5,12 +5,15 @@ import swaggerUI from "swagger-ui-express";
 import { swaggerSpec } from "./docs/swagger.js";
 import { devLogger } from "./middlewares/morganLogger.js";
 import { connectDB } from "./lib/db.js";
+import { startMQTT } from "./mqtt/mqttClient.js";
 
 import authRoutes from "./routes/auth.route.js";
 import deviceRoutes from "./routes/device.route.js"
 import sensorRoutes from "./routes/sensor.route.js"
 import alertRoutes from "./routes/alert.route.js"
 import deviceModeRoutes from "./routes/deviceMode.route.js"
+import reportRoutes from "./routes/report.route.js";
+import manualPumpRoutes from "./routes/manualPump.route.js";
 
 const app = express();
 
@@ -37,21 +40,22 @@ app.use("/api/device", deviceModeRoutes);
 
 app.use("/api/sensor", sensorRoutes);
 app.use("/api/alerts", alertRoutes);
+app.use("/api/reports", reportRoutes);
+
+app.use("/api/device", manualPumpRoutes);
 
 // Swagger UI
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
 
 const port = process.env.PORT || 3000;
 
-app.listen(port, () => {
-    console.log(
-        `Server running in ${process.env.NODE_ENV} on port ${port}`
-    );
-    console.log(
-        `Swagger: ${process.env.NODE_ENV === "production"
-            ? `${process.env.BASE_URL}/api-docs`
-            : `http://localhost:${port}/api-docs`}`
-    );
+const startServer = async () => {
+    await connectDB();
+    startMQTT();
 
-    connectDB();
-});
+    app.listen(port, () => {
+        console.log(`Server running on port ${port}`);
+    });
+};
+
+startServer();

@@ -28,9 +28,19 @@ export const updateDeviceMode = async (req, res) => {
             return res.status(400).json({ message: "Invalid mode" });
         }
 
+        const update = {
+            mode,
+        };
+
+        // Nếu rời manual → tắt bơm
+        if (mode !== "manual") {
+            update["manualConfig.isPumpOn"] = false;
+            update["manualConfig.stoppedAt"] = new Date();
+        }
+
         const deviceMode = await DeviceMode.findOneAndUpdate(
             { deviceId: req.params.id },
-            { mode },
+            update,
             { new: true, upsert: true }
         );
 

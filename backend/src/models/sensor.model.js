@@ -7,24 +7,38 @@ const sensorSchema = new mongoose.Schema(
             ref: "Device",
             required: true,
         },
+        // Thời điểm sensor gửi dữ liệu
         timestamp: {
             type: Date,
             default: Date.now,
+            required: true,
         },
-        // Nhiệt độ
+        // Nhiệt độ (°C)
         temperature: {
             type: Number,
             required: true,
         },
-        // Độ ẩm
+        // Độ ẩm (%)
         humidity: {
             type: Number,
             required: true,
         },
-        // Độ ẩm đất
+        // Độ ẩm đất (%)
         soilMoisture: {
             type: Number,
             required: true,
+        },
+        // Mức pin của thiết bị (%)
+        battery: {
+            type: Number,
+            required: false, // Có thể optional nếu thiết bị chưa gửi
+            default: null,
+        },
+        // Mức nước (m)
+        water: {
+            type: Number,
+            required: false,
+            default: null,
         },
     },
     { timestamps: true }

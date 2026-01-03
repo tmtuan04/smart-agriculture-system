@@ -29,6 +29,15 @@ const deviceSchema = new mongoose.Schema(
             type: Date,
             default: null,
         },
+        firmwareVersion: String,
+        timezone: {
+            type: String,
+            default: "Asia/Ho_Chi_Minh",
+        },
+        location: {
+            lat: Number,
+            lng: Number,
+        },
     },
     { timestamps: true }
 );

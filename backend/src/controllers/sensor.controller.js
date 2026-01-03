@@ -1,9 +1,52 @@
-import Sensor from "../models/sensor.model.js"
+import Sensor from "../models/sensor.model.js";
+import Device from "../models/device.model.js";
 
 export const insertSensorData = async (req, res) => {
     try {
-        const data = await Sensor.create(req.body);
-        res.status(201).json(data);
+        const {
+            deviceId, // string: ESP32_FARM_01
+            temperature,
+            humidity,
+            soilMoisture,
+            battery,
+            water,
+            timestamp,
+        } = req.body;
+
+        // Validate cơ bản
+        if (
+            !deviceId ||
+            temperature == null ||
+            humidity == null ||
+            soilMoisture == null
+        ) {
+            return res.status(400).json({
+                message: "Missing required sensor fields",
+            });
+        }
+
+        const device = await Device.findOne({ deviceId });
+        if (!device) {
+            return res.status(404).json({
+                message: "Device not found",
+            });
+        }
+
+        const sensor = await Sensor.create({
+            deviceId: device._id,
+            temperature,
+            humidity,
+            soilMoisture,
+            battery: battery ?? null,
+            water: water ?? null,
+            timestamp: timestamp ? new Date(timestamp) : new Date(),
+        });
+
+        device.status = "online";
+        device.lastActive = new Date();
+        await device.save();
+
+        res.status(201).json(sensor);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -11,10 +54,22 @@ export const insertSensorData = async (req, res) => {
 
 export const getLatestSensor = async (req, res) => {
     try {
-        const sensor = await Sensor.findOne({ deviceId: req.params.deviceId })
-            .sort({ timestamp: -1 });
+        const { deviceId } = req.params;
 
-        if (!sensor) return res.status(404).json({ message: "No sensor data" });
+        // Tìm device
+        const device = await Device.findOne({ deviceId });
+        if (!device) {
+            return res.status(404).json({ message: "Device not found" });
+        }
+
+        // Lấy sensor mới nhất
+        const sensor = await Sensor.findOne({ deviceId: device._id }).sort({
+            timestamp: -1,
+        });
+
+        if (!sensor) {
+            return res.status(404).json({ message: "No sensor data" });
+        }
 
         res.json(sensor);
     } catch (err) {

@@ -13,7 +13,7 @@ async function run() {
     const reportDate = new Date();
     reportDate.setUTCDate(reportDate.getUTCDate() - 1); // Sat Dec 13 2025 21:22:14 GMT+0700 (GMT+07:00)
 
-    // Lấy danh sách tất cả device, nhưng CHỈ lấy mỗi trường _id
+    // Lấy danh sách tất cả device, nhưng chỉ trường _id
     const devices = await Device.find({}, { _id: 1 });
 
     for (const device of devices) {
