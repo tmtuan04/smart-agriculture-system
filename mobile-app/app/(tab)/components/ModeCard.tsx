@@ -47,23 +47,22 @@ export const ModeCard = ({
     const [changingMode, setChangingMode] = useState(false);
 
     useEffect(() => {
-        let interval: NodeJS.Timeout;
+        let interval: ReturnType<typeof setInterval> | undefined;
 
         if (selectedMode === "AUTO") {
             const updateCountdown = () => {
                 const now = dayjs();
-                // Thiết lập mốc thời gian mục tiêu trong ngày hôm nay
+
                 let target = dayjs()
                     .hour(scheduleHour)
                     .minute(scheduleMinute)
                     .second(0);
 
-                // Nếu giờ mục tiêu đã trôi qua so với hiện tại, tính mốc đó của ngày mai
                 if (target.isBefore(now)) {
                     target = target.add(1, "day");
                 }
 
-                const diff = target.diff(now); // Lấy chênh lệch tính bằng miliseconds
+                const diff = target.diff(now);
 
                 const hours = Math.floor(diff / (1000 * 60 * 60));
                 const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
@@ -78,7 +77,9 @@ export const ModeCard = ({
             interval = setInterval(updateCountdown, 1000);
         }
 
-        return () => interval && clearInterval(interval);
+        return () => {
+            if (interval) clearInterval(interval);
+        };
     }, [selectedMode, scheduleHour, scheduleMinute]);
 
     useEffect(() => {
@@ -112,6 +113,18 @@ export const ModeCard = ({
         fetchModeConfig();
     }, [deviceId]);
 
+    useEffect(() => {
+        if (activeMode !== "MANUAL") return;
+        if (!isWatering) return;
+
+        const start = Date.now();
+
+        const interval = setInterval(() => {
+            setElapsedMs(prev => prev + 100);
+        }, 100);
+
+        return () => clearInterval(interval);
+    }, [isWatering, activeMode]);
 
     const formatTime = (ms: number) => {
         const m = Math.floor(ms / 60000);
