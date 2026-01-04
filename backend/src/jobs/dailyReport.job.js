@@ -3,11 +3,17 @@ import Sensor from "../models/sensor.model.js";
 import Report from "../models/report.model.js";
 import PumpSession from "../models/pumpSession.model.js";
 
+/* ===== UTC DAY RANGE ===== */
 function getUTCDayRange(date) {
     const d = new Date(date);
 
     const start = new Date(
-        Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 0, 0, 0)
+        Date.UTC(
+            d.getUTCFullYear(),
+            d.getUTCMonth(),
+            d.getUTCDate(),
+            0, 0, 0
+        )
     );
 
     const end = new Date(start);
@@ -16,17 +22,23 @@ function getUTCDayRange(date) {
     return { start, end };
 }
 
+/* ===== GENERATE DAILY REPORT ===== */
 export async function generateDailyReportForDevice(deviceId, date) {
     const deviceObjectId = new mongoose.Types.ObjectId(deviceId);
     const { start, end } = getUTCDayRange(date);
 
     try {
-        /* ===== SENSOR STATS ===== */
+        /* ========= SENSOR STATS ========= */
         const sensorStats = await Sensor.aggregate([
             {
                 $match: {
                     deviceId: deviceObjectId,
                     timestamp: { $gte: start, $lt: end },
+
+                    // filter dữ liệu rác
+                    temperature: { $gte: -10, $lte: 80 },
+                    humidity: { $gte: 0, $lte: 100 },
+                    soilMoisture: { $gte: 0, $lte: 100 },
                 },
             },
             {
@@ -44,17 +56,17 @@ export async function generateDailyReportForDevice(deviceId, date) {
                     minSoil: { $min: "$soilMoisture" },
                     maxSoil: { $max: "$soilMoisture" },
 
-                    count: { $sum: 1 },
+                    sampleCount: { $sum: 1 },
                 },
             },
         ]);
 
-        /* ===== PUMP STATS ===== */
+        /* ========= PUMP STATS ========= */
         const pumpStats = await PumpSession.aggregate([
             {
                 $match: {
                     deviceId: deviceObjectId,
-                    startedAt: { $gte: start, $lt: end },
+                    endedAt: { $gte: start, $lt: end },
                     status: "completed",
                 },
             },
@@ -62,9 +74,18 @@ export async function generateDailyReportForDevice(deviceId, date) {
                 $group: {
                     _id: null,
                     totalSessions: { $sum: 1 },
-                    totalDurationSeconds: { $sum: "$durationSeconds" },
-                    avgSoilIncrease: { $avg: "$delta.soilMoisture" },
-                    maxSoilIncrease: { $max: "$delta.soilMoisture" },
+
+                    totalDurationSeconds: {
+                        $sum: { $ifNull: ["$durationSeconds", 0] },
+                    },
+
+                    avgSoilIncrease: {
+                        $avg: "$delta.soilMoisture",
+                    },
+
+                    maxSoilIncrease: {
+                        $max: "$delta.soilMoisture",
+                    },
                 },
             },
         ]);
@@ -79,6 +100,7 @@ export async function generateDailyReportForDevice(deviceId, date) {
                 reportDate: start,
                 period: { startAt: start, endAt: end },
 
+                /* ===== SENSOR ===== */
                 stats: sensorStats.length
                     ? {
                           temperature: {
@@ -99,17 +121,19 @@ export async function generateDailyReportForDevice(deviceId, date) {
                       }
                     : undefined,
 
+                /* ===== WATERING ===== */
                 watering: {
                     totalSessions: p.totalSessions || 0,
-                    totalDurationMinutes: Math.round(
-                        (p.totalDurationSeconds || 0) / 60
+                    totalDurationMinutes: Number(
+                        ((p.totalDurationSeconds || 0) / 60).toFixed(2)
                     ),
-                    avgSoilIncrease: p.avgSoilIncrease || null,
-                    maxSoilIncrease: p.maxSoilIncrease || null,
+                    avgSoilIncrease: p.avgSoilIncrease ?? null,
+                    maxSoilIncrease: p.maxSoilIncrease ?? null,
                 },
 
+                /* ===== META ===== */
                 generatedFrom: {
-                    sensorCount: s.count || 0,
+                    sensorSampleCount: s.sampleCount || 0,
                     pumpSessionCount: p.totalSessions || 0,
                 },
 
