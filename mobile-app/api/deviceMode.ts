@@ -1,6 +1,30 @@
 import { BASE_URL } from "./config";
 
-// https://smart-agriculture-system-f2wg.onrender.com/api/device/6935513b52ef8c9bda001fcc/mode-config
+export type ModeType = "manual" | "auto" | "ai";
+
+export const updateDeviceMode = async (deviceId: string, mode: ModeType) => {
+    if (!deviceId) {
+        throw new Error("deviceId is required");
+    }
+
+    const response = await fetch(
+        `${BASE_URL}/device/${deviceId}/mode`,
+        {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                accept: "*/*",
+            },
+            body: JSON.stringify({ mode }),
+        }
+    );
+
+    const data = await response.json();
+    return {
+        ok: response.ok,
+        data,
+    };
+};
 
 // Lấy mode, config hiện tại
 export const getCurrentMode = async (deviceId: string) => {
@@ -57,4 +81,3 @@ export const updateAutoMode = async (
         data,
     };
 };
-// Update config theo mode

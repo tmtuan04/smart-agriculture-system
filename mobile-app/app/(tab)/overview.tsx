@@ -110,6 +110,16 @@ export default function OverviewScreen() {
         }
     };
 
+    const handleModeChange = (mode: ModeType) => {
+        // setActiveMode(mode);
+        setSelectedMode(mode);
+    };
+
+    const reloadModeFromServer = async () => {
+        if (!deviceIdDb) return;
+        await loadCurrentMode(deviceIdDb);
+    };
+
     /* INIT */
     useEffect(() => {
         (async () => {
@@ -120,6 +130,8 @@ export default function OverviewScreen() {
             if (!id) return;
 
             await loadSensorData(id);
+
+            if (!deviceIdDb) return;
             await loadCurrentMode(deviceIdDb);
         })();
     }, [deviceIdDb]);
@@ -145,7 +157,8 @@ export default function OverviewScreen() {
                         deviceId={deviceIdDb}
                         activeMode={activeMode}
                         selectedMode={selectedMode}
-                        onChange={setSelectedMode}
+                        onChange={handleModeChange}
+                        onModeChanged={reloadModeFromServer}
                     />
                 ) : null}
             </ScrollView>
@@ -153,7 +166,6 @@ export default function OverviewScreen() {
     );
 }
 
-/* ===================== STYLES ===================== */
 const styles = StyleSheet.create({
     container: {
         flex: 1,

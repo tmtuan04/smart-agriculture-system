@@ -1,17 +1,27 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Modal } from "react-native";
 import { manualPump } from "@/api/pump";
 import dayjs from "dayjs";
-import { getCurrentMode, updateAutoMode } from "@/api/deviceMode";
+import { getCurrentMode, updateAutoMode, updateDeviceMode } from "@/api/deviceMode";
 
-
+// UI
 export type ModeType = "MANUAL" | "AUTO" | "AI";
+
+// Backend
+type ApiModeType = "manual" | "auto" | "ai";
+
+const mapUIToApiMode = (mode: ModeType): ApiModeType =>
+    mode.toLowerCase() as ApiModeType;
+
+const mapApiToUIMode = (mode: ApiModeType): ModeType =>
+    mode.toUpperCase() as ModeType;
 
 type Props = {
     deviceId: string;
     activeMode: ModeType;
     selectedMode: ModeType;
     onChange: (mode: ModeType) => void;
+    onModeChanged: () => Promise<void>;
 };
 
 export const ModeCard = ({
@@ -19,6 +29,7 @@ export const ModeCard = ({
     activeMode,
     selectedMode,
     onChange,
+    onModeChanged
 }: Props) => {
     const [isWatering, setIsWatering] = useState(false);
     const [elapsedMs, setElapsedMs] = useState(0);
@@ -31,6 +42,9 @@ export const ModeCard = ({
 
     const [duration, setDuration] = useState(15);
     const [saving, setSaving] = useState(false);
+
+    const [showModeModal, setShowModeModal] = useState(false);
+    const [changingMode, setChangingMode] = useState(false);
 
     useEffect(() => {
         let interval: NodeJS.Timeout;
@@ -175,14 +189,44 @@ export const ModeCard = ({
         }
     };
 
+    const handleChangeMode = async (mode: ModeType) => {
+        if (mode === activeMode) {
+            setShowModeModal(false);
+            return;
+        }
+
+        try {
+            setChangingMode(true);
+
+            const res = await updateDeviceMode(
+                deviceId,
+                mapUIToApiMode(mode)
+            );
+
+            if (!res.ok) {
+                alert("Đổi chế độ thất bại");
+                return;
+            }
+
+            await onModeChanged();
+            onChange(mode); // để tab sync theo mode mới
+            setShowModeModal(false);
+        } catch (err) {
+            console.log("Change mode error:", err);
+            alert("Có lỗi xảy ra khi đổi chế độ");
+        } finally {
+            setChangingMode(false);
+        }
+    };
+
+
     return (
         <View style={styles.card}>
             {/* ===== HEADER ===== */}
             <View style={styles.headerRow}>
                 <Text style={styles.title}>Chế độ hoạt động</Text>
 
-                {/* Badge lấy từ API – KHÔNG đổi theo tab */}
-                <View style={styles.modeBadge}>
+                <TouchableOpacity style={styles.modeBadge} onPress={() => setShowModeModal(true)}>
                     <View
                         style={[
                             styles.modeDot,
@@ -192,7 +236,7 @@ export const ModeCard = ({
                     <Text style={styles.modeBadgeText}>
                         {activeMode}
                     </Text>
-                </View>
+                </TouchableOpacity>
             </View>
 
             <View style={styles.tabs}>
@@ -371,6 +415,46 @@ export const ModeCard = ({
                     </Text>
                 )}
             </View>
+            <Modal
+                transparent
+                animationType="fade"
+                visible={showModeModal}
+                onRequestClose={() => setShowModeModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalBox}>
+                        <Text style={styles.modalTitle}>Chọn chế độ hoạt động</Text>
+
+                        {(["MANUAL", "AUTO", "AI"] as ModeType[]).map((m) => (
+                            <TouchableOpacity
+                                key={m}
+                                style={[
+                                    styles.modeOption,
+                                    activeMode === m && styles.activeModeOption,
+                                ]}
+                                onPress={() => handleChangeMode(m)}
+                                disabled={changingMode}
+                            >
+                                <Text
+                                    style={[
+                                        styles.modeOptionText,
+                                        activeMode === m && styles.activeModeText,
+                                    ]}
+                                >
+                                    {m}
+                                </Text>
+                            </TouchableOpacity>
+                        ))}
+
+                        <TouchableOpacity
+                            style={styles.cancelBtn}
+                            onPress={() => setShowModeModal(false)}
+                        >
+                            <Text style={styles.cancelText}>Huỷ</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -589,4 +673,57 @@ const styles = StyleSheet.create({
         fontWeight: "700",
         fontSize: 16,
     },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: "rgba(0,0,0,0.4)",
+        justifyContent: "center",
+        alignItems: "center",
+    },
+
+    modalBox: {
+        width: "80%",
+        backgroundColor: "#fff",
+        borderRadius: 16,
+        padding: 20,
+    },
+
+    modalTitle: {
+        fontSize: 16,
+        fontWeight: "700",
+        marginBottom: 16,
+        textAlign: "center",
+    },
+
+    modeOption: {
+        paddingVertical: 12,
+        borderRadius: 10,
+        alignItems: "center",
+        marginBottom: 10,
+        backgroundColor: "#F5F7FA",
+    },
+
+    activeModeOption: {
+        backgroundColor: "#E3F2FD",
+    },
+
+    modeOptionText: {
+        fontSize: 15,
+        fontWeight: "600",
+        color: "#424242",
+    },
+
+    activeModeText: {
+        color: "#1976D2",
+    },
+
+    cancelBtn: {
+        marginTop: 10,
+        alignItems: "center",
+    },
+
+    cancelText: {
+        color: "#757575",
+        fontWeight: "600",
+    },
+
 });
