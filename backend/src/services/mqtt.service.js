@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { publishMQTT } from '../mqtt/mqttClient';
 
 export const startHeartbeat = () => {
     setInterval(() => {
