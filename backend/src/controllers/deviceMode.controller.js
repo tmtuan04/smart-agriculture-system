@@ -89,7 +89,10 @@ export const updateAutoConfig = async (req, res) => {
         const { id } = req.params;
 
         if (!isValidObjectId(id)) {
-            return res.status(400).json({ success: false, message: "Invalid deviceId" });
+            return res.status(400).json({
+                success: false,
+                message: "Invalid deviceId",
+            });
         }
 
         const {
@@ -99,13 +102,22 @@ export const updateAutoConfig = async (req, res) => {
             enabled,
         } = req.body;
 
+        // FE gửi giờ VN (GMT+7) → convert sang UTC
+        let utcHour = schedule.hour - 7;
+        if (utcHour < 0) utcHour += 24;
+
+        const utcSchedule = {
+            hour: utcHour,
+            minute: schedule.minute,
+        };
+
         const config = await DeviceMode.findOneAndUpdate(
             { deviceId: id },
             {
                 deviceId: id,
                 mode: "auto",
                 autoConfig: {
-                    schedule,
+                    schedule: utcSchedule,
                     thresholds,
                     durationMinutes,
                     enabled,
@@ -121,10 +133,12 @@ export const updateAutoConfig = async (req, res) => {
         res.json({ success: true, config });
     } catch (err) {
         console.error(err);
-        res.status(500).json({ success: false, message: "Update AUTO failed" });
+        res.status(500).json({
+            success: false,
+            message: "Update AUTO failed",
+        });
     }
 };
-
 
 // PATCH /devices/:id/ai
 export const updateAIConfig = async (req, res) => {
