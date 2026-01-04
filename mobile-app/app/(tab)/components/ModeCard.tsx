@@ -46,6 +46,8 @@ export const ModeCard = ({
     const [showModeModal, setShowModeModal] = useState(false);
     const [changingMode, setChangingMode] = useState(false);
 
+    const MINUTE_STEP = 5;
+
     useEffect(() => {
         let interval: ReturnType<typeof setInterval> | undefined;
 
@@ -386,16 +388,55 @@ export const ModeCard = ({
                         <Text style={styles.sectionTitle}>Lịch tưới định kỳ</Text>
 
                         <View style={styles.settingRow}>
-                            <Text style={styles.settingLabel}>Giờ bắt đầu</Text>
+                            <Text style={styles.settingLabel}>Giờ</Text>
                             <View style={styles.stepperContainer}>
-                                <TouchableOpacity style={styles.stepClick} onPress={() => setScheduleHour(h => (h + 23) % 24)}>
+                                <TouchableOpacity
+                                    style={styles.stepClick}
+                                    onPress={() => setScheduleHour(h => (h + 23) % 24)}
+                                >
                                     <Text style={styles.stepBtnText}>−</Text>
                                 </TouchableOpacity>
-                                {/* Format 00:00 */}
+
                                 <Text style={styles.stepperValue}>
-                                    {String(scheduleHour).padStart(2, '0')}:{String(scheduleMinute).padStart(2, '0')}
+                                    {String(scheduleHour).padStart(2, "0")}
                                 </Text>
-                                <TouchableOpacity style={styles.stepClick} onPress={() => setScheduleHour(h => (h + 1) % 24)}>
+
+                                <TouchableOpacity
+                                    style={styles.stepClick}
+                                    onPress={() => setScheduleHour(h => (h + 1) % 24)}
+                                >
+                                    <Text style={styles.stepBtnText}>+</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* ===== PHÚT ===== */}
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>Phút</Text>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity
+                                    style={styles.stepClick}
+                                    onPress={() =>
+                                        setScheduleMinute(m =>
+                                            m - MINUTE_STEP < 0 ? 60 - MINUTE_STEP : m - MINUTE_STEP
+                                        )
+                                    }
+                                >
+                                    <Text style={styles.stepBtnText}>−</Text>
+                                </TouchableOpacity>
+
+                                <Text style={styles.stepperValue}>
+                                    {String(scheduleMinute).padStart(2, "0")}
+                                </Text>
+
+                                <TouchableOpacity
+                                    style={styles.stepClick}
+                                    onPress={() =>
+                                        setScheduleMinute(m =>
+                                            (m + MINUTE_STEP) % 60
+                                        )
+                                    }
+                                >
                                     <Text style={styles.stepBtnText}>+</Text>
                                 </TouchableOpacity>
                             </View>
