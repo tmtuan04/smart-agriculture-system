@@ -4,12 +4,20 @@ import { BASE_URL } from "./config";
 
 // Lấy mode, config hiện tại
 export const getCurrentMode = async (deviceId: string) => {
-    const response = await fetch(`${BASE_URL}/device/${deviceId}/mode-config`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-    });
+    const response = await fetch(
+        `${BASE_URL}/device/${deviceId}/mode-config`,
+        {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+        }
+    );
 
-    return response.json().then((data) => ({ ok: response.ok, data }));
+    const data = await response.json();
+
+    return {
+        ok: response.ok,
+        data,
+    };
 };
 
 // Update mode

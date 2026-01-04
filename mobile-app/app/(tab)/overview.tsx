@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { ScrollView, Alert, StyleSheet } from "react-native";
+import { ScrollView, Alert, StyleSheet, ActivityIndicator } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 
@@ -27,8 +27,9 @@ export default function OverviewScreen() {
     const [deviceIdDb, setDeviceIdDb] = useState<string>("");
     const [sensor, setSensor] = useState<SensorData | null>(null);
     const [loading, setLoading] = useState(false);
-    const [activeMode, setActiveMode] = useState<ModeType>("MANUAL"); // từ API
-    const [selectedMode, setSelectedMode] = useState<ModeType>("MANUAL"); // UI
+    const [activeMode, setActiveMode] = useState<ModeType | null>(null);
+    const [selectedMode, setSelectedMode] = useState<ModeType | null>(null);
+    const [modeLoading, setModeLoading] = useState(true);
 
     /* AUTH */
     const loadAuthInfo = async () => {
@@ -89,13 +90,24 @@ export default function OverviewScreen() {
     };
 
     const loadCurrentMode = async (deviceId: string) => {
-        const res = await getCurrentMode(deviceId);
-        if (!res.ok) return;
+        try {
+            setModeLoading(true);
 
-        const backendMode = mapBackendModeToUI(res.data.mode);
+            const res = await getCurrentMode(deviceId);
+            if (!res.ok) {
+                console.warn("Failed to load mode");
+                return;
+            }
 
-        setActiveMode(backendMode);
-        setSelectedMode(backendMode); // sync ban đầu
+            const backendMode = mapBackendModeToUI(res.data.mode);
+
+            setActiveMode(backendMode);
+            setSelectedMode(backendMode);
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setModeLoading(false);
+        }
     };
 
     /* INIT */
@@ -108,9 +120,9 @@ export default function OverviewScreen() {
             if (!id) return;
 
             await loadSensorData(id);
-            await loadCurrentMode(id);
+            await loadCurrentMode(deviceIdDb);
         })();
-    }, []);
+    }, [deviceIdDb]);
 
     return (
         <SafeAreaView style={styles.container}>
@@ -126,12 +138,16 @@ export default function OverviewScreen() {
                 />
 
                 {/* Mode */}
-                <ModeCard
-                    deviceId={deviceIdDb}
-                    activeMode={activeMode}
-                    selectedMode={selectedMode}
-                    onChange={setSelectedMode}
-                />
+                {modeLoading ? (
+                    <ActivityIndicator /> // hoặc ActivityIndicator
+                ) : activeMode && selectedMode ? (
+                    <ModeCard
+                        deviceId={deviceIdDb}
+                        activeMode={activeMode}
+                        selectedMode={selectedMode}
+                        onChange={setSelectedMode}
+                    />
+                ) : null}
             </ScrollView>
         </SafeAreaView>
     );

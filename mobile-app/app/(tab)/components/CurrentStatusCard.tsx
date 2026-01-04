@@ -78,7 +78,7 @@ export const CurrentStatusCard = ({ sensor, loading, onRefresh }: Props) => {
                             ? "#E53935"
                             : "#43A047"
                     }
-                    value={sensor ? `${sensor.battery}%` : "--"}
+                    value={sensor ? `${sensor.battery.toFixed(0)}%` : "--"}
                     label="Pin"
                 />
 

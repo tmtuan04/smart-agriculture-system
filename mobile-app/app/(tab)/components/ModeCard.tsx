@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { manualPump } from "@/api/pump";
+import dayjs from "dayjs";
 
 export type ModeType = "MANUAL" | "AUTO" | "AI";
 
@@ -19,19 +20,50 @@ export const ModeCard = ({
 }: Props) => {
     const [isWatering, setIsWatering] = useState(false);
     const [elapsedMs, setElapsedMs] = useState(0);
+    const [autoSoilMin, setAutoSoilMin] = useState(40);
+    const [autoSoilMax, setAutoSoilMax] = useState(80);
+
+    const [scheduleHour, setScheduleHour] = useState(7);
+    const [scheduleMinute, setScheduleMinute] = useState(30);
+    const [countdown, setCountdown] = useState("");
+
+    const [duration, setDuration] = useState(15);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
-        let interval: number | null = null;
+        let interval: NodeJS.Timeout;
 
-        if (isWatering && activeMode === "MANUAL") {
-            const start = Date.now() - elapsedMs;
-            interval = setInterval(() => {
-                setElapsedMs(Date.now() - start);
-            }, 50);
+        if (selectedMode === "AUTO") {
+            const updateCountdown = () => {
+                const now = dayjs();
+                // Thiết lập mốc thời gian mục tiêu trong ngày hôm nay
+                let target = dayjs()
+                    .hour(scheduleHour)
+                    .minute(scheduleMinute)
+                    .second(0);
+
+                // Nếu giờ mục tiêu đã trôi qua so với hiện tại, tính mốc đó của ngày mai
+                if (target.isBefore(now)) {
+                    target = target.add(1, "day");
+                }
+
+                const diff = target.diff(now); // Lấy chênh lệch tính bằng miliseconds
+
+                const hours = Math.floor(diff / (1000 * 60 * 60));
+                const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const secs = Math.floor((diff % (1000 * 60)) / 1000);
+
+                setCountdown(
+                    `${String(hours).padStart(2, "0")}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`
+                );
+            };
+
+            updateCountdown();
+            interval = setInterval(updateCountdown, 1000);
         }
 
         return () => interval && clearInterval(interval);
-    }, [isWatering, activeMode, elapsedMs]);
+    }, [selectedMode, scheduleHour, scheduleMinute]);
 
     const formatTime = (ms: number) => {
         const m = Math.floor(ms / 60000);
@@ -50,8 +82,6 @@ export const ModeCard = ({
         const action = isWatering ? "off" : "on";
 
         const res = await manualPump(deviceId, action);
-
-        console.log(res)
 
         if (!res.ok) {
             alert("Không thể điều khiển bơm");
@@ -79,6 +109,33 @@ export const ModeCard = ({
             alert("Không thể dừng bơm");
         }
     };
+
+    const handleSaveAutoConfig = async () => {
+        setSaving(true);
+
+        const payload = {
+            schedule: {
+                hour: scheduleHour,
+                minute: scheduleMinute,
+            },
+            duration,
+            thresholds: {
+                soilMin: autoSoilMin,
+                soilMax: autoSoilMax,
+            },
+            enabled: true,
+        };
+
+        console.log("SAVE AUTO CONFIG:", payload);
+
+        // TODO: call API updateAutoConfig(deviceId, payload)
+
+        setTimeout(() => {
+            setSaving(false);
+            alert("Lưu cấu hình AUTO thành công");
+        }, 600);
+    };
+
 
     return (
         <View style={styles.card}>
@@ -190,9 +247,84 @@ export const ModeCard = ({
                 )}
 
                 {selectedMode === "AUTO" && (
-                    <Text style={styles.modeText}>
-                        Hệ thống tự động theo ngưỡng nhiệt độ & độ ẩm
-                    </Text>
+                    <View>
+                        <View style={styles.statusBadge}>
+                            <View style={[styles.dot, { backgroundColor: "#1976D2" }]} />
+                            <Text style={styles.statusText}>
+                                Tự động sau: {countdown}
+                            </Text>
+                        </View>
+                        {/* --- Ngưỡng độ ẩm --- */}
+                        <Text style={styles.sectionTitle}>Ngưỡng độ ẩm đất (%)</Text>
+
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>Tối thiểu (Min)</Text>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setAutoSoilMin(v => Math.max(0, v - 5))}>
+                                    <Text style={styles.stepBtnText}>−</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.stepperValue}>{autoSoilMin}</Text>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setAutoSoilMin(v => v + 5)}>
+                                    <Text style={styles.stepBtnText}>+</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>Tối đa (Max)</Text>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setAutoSoilMax(v => Math.max(autoSoilMin + 5, v - 5))}>
+                                    <Text style={styles.stepBtnText}>−</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.stepperValue}>{autoSoilMax}</Text>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setAutoSoilMax(v => v + 5)}>
+                                    <Text style={styles.stepBtnText}>+</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        {/* --- Thời gian --- */}
+                        <Text style={styles.sectionTitle}>Lịch tưới định kỳ</Text>
+
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>Giờ bắt đầu</Text>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setScheduleHour(h => (h + 23) % 24)}>
+                                    <Text style={styles.stepBtnText}>−</Text>
+                                </TouchableOpacity>
+                                {/* Format 00:00 */}
+                                <Text style={styles.stepperValue}>
+                                    {String(scheduleHour).padStart(2, '0')}:{String(scheduleMinute).padStart(2, '0')}
+                                </Text>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setScheduleHour(h => (h + 1) % 24)}>
+                                    <Text style={styles.stepBtnText}>+</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <Text style={styles.settingLabel}>Thời lượng tưới</Text>
+                            <View style={styles.stepperContainer}>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setDuration(d => Math.max(1, d - 1))}>
+                                    <Text style={styles.stepBtnText}>−</Text>
+                                </TouchableOpacity>
+                                <Text style={styles.stepperValue}>{duration} phút</Text>
+                                <TouchableOpacity style={styles.stepClick} onPress={() => setDuration(d => d + 1)}>
+                                    <Text style={styles.stepBtnText}>+</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity
+                            style={styles.saveBtn}
+                            onPress={handleSaveAutoConfig}
+                            disabled={saving}
+                        >
+                            <Text style={styles.saveText}>
+                                {saving ? "Đang lưu..." : "Lưu cấu hình"}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 )}
 
                 {selectedMode === "AI" && (
@@ -354,5 +486,69 @@ const styles = StyleSheet.create({
         fontSize: 13,
         color: "#616161",
         fontWeight: "500",
+    },
+    sectionTitle: {
+        fontSize: 13,
+        fontWeight: "700",
+        color: "#9E9E9E",
+        textTransform: "uppercase",
+        marginTop: 32,
+        marginBottom: 10,
+        letterSpacing: 0.5,
+    },
+    settingRow: {
+        flexDirection: "row",
+        justifyContent: "space-between",
+        alignItems: "center",
+        marginBottom: 12,
+    },
+    settingLabel: {
+        fontSize: 15,
+        color: "#424242",
+        fontWeight: "500",
+    },
+    stepperContainer: {
+        flexDirection: "row",
+        alignItems: "center",
+        backgroundColor: "#F5F7FA",
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: "#E0E0E0",
+        overflow: "hidden",
+    },
+    stepClick: {
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        backgroundColor: "#E3F2FD",
+    },
+    stepBtnText: {
+        fontSize: 18,
+        color: "#1976D2",
+        fontWeight: "bold",
+    },
+    stepperValue: {
+        minWidth: 60, // Đảm bảo không bị nhảy layout khi số thay đổi
+        textAlign: "center",
+        fontWeight: "700",
+        color: "#212121",
+        fontSize: 14,
+    },
+    saveBtn: {
+        marginTop: 20,
+        backgroundColor: "#1976D2",
+        paddingVertical: 14,
+        borderRadius: 12,
+        alignItems: "center",
+        // Thêm chút shadow cho nổi bật
+        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+    },
+    saveText: {
+        color: "#fff",
+        fontWeight: "700",
+        fontSize: 16,
     },
 });
