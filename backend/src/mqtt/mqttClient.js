@@ -27,6 +27,8 @@ export const startMQTT = () => {
     mqttClient.on("message", async (_, message) => {
         try {
             const payload = JSON.parse(message.toString());
+
+            console.log(payload)
             await saveSensorFromMQTT(payload);
         } catch {
             console.warn("Invalid MQTT payload:", message.toString());

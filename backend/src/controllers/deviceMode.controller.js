@@ -71,20 +71,27 @@ export const updateManualConfig = async (req, res) => {
 
 // PATCH /devices/:id/auto
 export const updateAutoConfig = async (req, res) => {
-    try {
-        const deviceMode = await DeviceMode.findOneAndUpdate(
-            { deviceId: req.params.id },
-            {
-                mode: "auto",
-                autoConfig: req.body,
-            },
-            { new: true, upsert: true }
-        );
+    const { deviceId } = req.params;
+    const { hour, minute, lower, upper, durationSeconds, enabled } = req.body;
 
-        res.json(deviceMode);
-    } catch (err) {
-        res.status(500).json({ message: err.message });
-    }
+    const config = await DeviceMode.findOneAndUpdate(
+        { deviceId },
+        {
+            // mode: "auto",
+            autoConfig: {
+                schedule: { hour, minute },
+                thresholds: {
+                    soilMin: lower,
+                    soilMax: upper,
+                },
+                durationMinutes: Math.ceil(durationSeconds / 60),
+                enabled,
+            },
+        },
+        { upsert: true, new: true }
+    );
+
+    res.json({ success: true, config });
 };
 
 // PATCH /devices/:id/ai

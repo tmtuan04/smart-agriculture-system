@@ -14,6 +14,7 @@ import alertRoutes from "./routes/alert.route.js"
 import deviceModeRoutes from "./routes/deviceMode.route.js"
 import reportRoutes from "./routes/report.route.js";
 import manualPumpRoutes from "./routes/manualPump.route.js";
+import { startAutoScheduler } from "./services/scheduler.service.js";
 
 const app = express();
 
@@ -52,6 +53,7 @@ const port = process.env.PORT || 3000;
 const startServer = async () => {
     await connectDB();
     startMQTT();
+    startAutoScheduler();
 
     app.listen(port, () => {
         console.log(`Server running on port ${port}`);
