@@ -2,7 +2,8 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { manualPump } from "@/api/pump";
 import dayjs from "dayjs";
-import { getCurrentMode } from "@/api/deviceMode";
+import { getCurrentMode, updateAutoMode } from "@/api/deviceMode";
+
 
 export type ModeType = "MANUAL" | "AUTO" | "AI";
 
@@ -140,31 +141,39 @@ export const ModeCard = ({
     };
 
     const handleSaveAutoConfig = async () => {
-        setSaving(true);
+        try {
+            setSaving(true);
 
-        const payload = {
-            schedule: {
-                hour: scheduleHour,
-                minute: scheduleMinute,
-            },
-            duration,
-            thresholds: {
-                soilMin: autoSoilMin,
-                soilMax: autoSoilMax,
-            },
-            enabled: true,
-        };
+            const payload = {
+                schedule: {
+                    hour: scheduleHour,
+                    minute: scheduleMinute,
+                },
+                thresholds: {
+                    soilMin: autoSoilMin,
+                    soilMax: autoSoilMax,
+                },
+                durationMinutes: duration,
+                enabled: true,
+            };
 
-        console.log("SAVE AUTO CONFIG:", payload);
+            console.log("SAVE AUTO CONFIG:", payload);
 
-        // TODO: call API updateAutoConfig(deviceId, payload)
+            const res = await updateAutoMode(deviceId, payload);
 
-        setTimeout(() => {
-            setSaving(false);
+            if (!res.ok) {
+                alert("Lưu cấu hình AUTO thất bại");
+                return;
+            }
+
             alert("Lưu cấu hình AUTO thành công");
-        }, 600);
+        } catch (err) {
+            console.log("Save auto config error:", err);
+            alert("Có lỗi xảy ra khi lưu cấu hình");
+        } finally {
+            setSaving(false);
+        }
     };
-
 
     return (
         <View style={styles.card}>

@@ -19,5 +19,42 @@ export const getCurrentMode = async (deviceId: string) => {
     };
 };
 
-// Update mode
+// Update Auto Mode
+type AutoConfigPayload = {
+    schedule: {
+        hour: number;
+        minute: number;
+    };
+    thresholds: {
+        soilMin: number;
+        soilMax: number;
+    };
+    durationMinutes: number;
+    enabled: boolean;
+};
+
+export const updateAutoMode = async (
+    deviceId: string,
+    payload: AutoConfigPayload
+) => {
+    const response = await fetch(
+        `${BASE_URL}/device/${deviceId}/auto`,
+        {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(payload),
+        }
+    );
+
+    const data = await response.json();
+
+    console.log(data)
+
+    return {
+        ok: response.ok,
+        data,
+    };
+};
 // Update config theo mode
