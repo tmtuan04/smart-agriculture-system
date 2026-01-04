@@ -95,7 +95,11 @@ export const ModeCard = ({
                     setAutoSoilMin(cfg.autoConfig.thresholds.soilMin);
                     setAutoSoilMax(cfg.autoConfig.thresholds.soilMax);
 
-                    setScheduleHour(cfg.autoConfig.schedule.hour);
+                    // UTC -> VN (GMT+7)
+                    let localHour = cfg.autoConfig.schedule.hour + 7;
+                    if (localHour >= 24) localHour -= 24;
+
+                    setScheduleHour(localHour);
                     setScheduleMinute(cfg.autoConfig.schedule.minute);
 
                     setDuration(cfg.autoConfig.durationMinutes ?? 1);
