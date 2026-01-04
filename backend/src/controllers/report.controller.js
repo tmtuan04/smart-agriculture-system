@@ -1,6 +1,5 @@
 import Report from "../models/report.model.js";
 import Sensor from "../models/sensor.model.js";
-import Device from "../models/device.model.js";
 
 // GET /reports
 export const getReports = async (req, res) => {
