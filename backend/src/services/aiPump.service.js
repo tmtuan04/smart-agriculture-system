@@ -4,6 +4,7 @@ import mongoose from "mongoose";
 import Sensor from "../models/sensor.model.js";
 import PumpSession from "../models/pumpSession.model.js";
 import DeviceMode from "../models/deviceMode.model.js";
+import AiDecision from "../models/aiDecision.model.js";
 import { publishMQTT } from "../mqtt/mqttClient.js";
 
 // --- 1. SETUP AI CONFIGURATION ---
@@ -150,12 +151,12 @@ export const startAILoop = async ({ deviceId }) => {
 
       await runAIAutoPumpForDevice({ deviceId });
 
-      const timer = setTimeout(loop, 60 * 1000);
+      const timer = setTimeout(loop, 10 * 1000);
 
       activeAILoops.set(deviceId, timer);
     } catch (err) {
       console.error(`[AI-LOOP] Error in loop:`, err);
-      const timer = setTimeout(loop, 60 * 1000);
+      const timer = setTimeout(loop, 10 * 1000);
       activeAILoops.set(deviceId, timer);
     }
   };
@@ -194,6 +195,16 @@ const startPump = async (deviceId, sensorData) => {
     trigger: "ai",
     timestamp: new Date().toISOString(),
   });
+  await AiDecision.create({
+    deviceId,
+    action: "on",
+    context: {
+      temperature: sensorData.temperature,
+      humidity: sensorData.humidity,
+      soilMoisture: sensorData.soilMoisture,
+    },
+    timestamps: Date.now(),
+  });
 };
 
 const stopPump = async (session, sensorAfter) => {
@@ -215,5 +226,16 @@ const stopPump = async (session, sensorAfter) => {
     pump: "off",
     trigger: "ai",
     timestamp: new Date().toISOString(),
+  });
+
+  await AiDecision.create({
+    deviceId: session.deviceId,
+    action: "off",
+    context: {
+      temperature: sensorAfter.temperature,
+      humidity: sensorAfter.humidity,
+      soilMoisture: sensorAfter.soilMoisture,
+    },
+    timestamps: Date.now(),
   });
 };
