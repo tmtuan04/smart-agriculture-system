@@ -1,11 +1,19 @@
 import DeviceMode from "../models/deviceMode.model.js";
 import mongoose from "mongoose";
 
+export const isValidObjectId = (id) =>
+    mongoose.Types.ObjectId.isValid(id);
+
 // GET /devices/:id/mode-config
 export const getDeviceModeConfig = async (req, res) => {
     try {
-        const deviceId = new mongoose.Types.ObjectId(req.params.id);
-        const deviceMode = await DeviceMode.findOne({ deviceId });
+        const { id } = req.params;
+
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ message: "Invalid deviceId" });
+        }
+
+        const deviceMode = await DeviceMode.findOne({ deviceId: id });
 
         if (!deviceMode) {
             return res.status(404).json({
@@ -22,26 +30,24 @@ export const getDeviceModeConfig = async (req, res) => {
 // PATCH /devices/:id/mode, body: { mode: "manual" | "auto" | "ai" }
 export const updateDeviceMode = async (req, res) => {
     try {
+        const { id } = req.params;
         const { mode } = req.body;
+
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ message: "Invalid deviceId" });
+        }
 
         if (!["manual", "auto", "ai"].includes(mode)) {
             return res.status(400).json({ message: "Invalid mode" });
         }
 
-        const update = {
-            mode,
-        };
-
-        // Nếu rời manual → tắt bơm
-        if (mode !== "manual") {
-            update["manualConfig.isPumpOn"] = false;
-            update["manualConfig.stoppedAt"] = new Date();
-        }
-
         const deviceMode = await DeviceMode.findOneAndUpdate(
-            { deviceId: req.params.id },
-            update,
-            { new: true, upsert: true }
+            { deviceId: id },
+            {
+                deviceId: id,
+                mode,
+            },
+            { new: true, upsert: true, setDefaultsOnInsert: true }
         );
 
         res.json(deviceMode);
@@ -50,17 +56,25 @@ export const updateDeviceMode = async (req, res) => {
     }
 };
 
+
 // PATCH /devices/:id/manual
 // Lưu ý: config theo mode tự động chuyển mode theo nó
 export const updateManualConfig = async (req, res) => {
     try {
+        const { id } = req.params;
+
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ message: "Invalid deviceId" });
+        }
+
         const deviceMode = await DeviceMode.findOneAndUpdate(
-            { deviceId: req.params.id },
+            { deviceId: id },
             {
+                deviceId: id,
                 mode: "manual",
                 manualConfig: req.body,
             },
-            { new: true, upsert: true }
+            { new: true, upsert: true, setDefaultsOnInsert: true }
         );
 
         res.json(deviceMode);
@@ -71,39 +85,64 @@ export const updateManualConfig = async (req, res) => {
 
 // PATCH /devices/:id/auto
 export const updateAutoConfig = async (req, res) => {
-    const { deviceId } = req.params;
-    const { hour, minute, lower, upper, durationSeconds, enabled } = req.body;
+    try {
+        const { id } = req.params;
 
-    const config = await DeviceMode.findOneAndUpdate(
-        { deviceId },
-        {
-            // mode: "auto",
-            autoConfig: {
-                schedule: { hour, minute },
-                thresholds: {
-                    soilMin: lower,
-                    soilMax: upper,
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ success: false, message: "Invalid deviceId" });
+        }
+
+        const {
+            schedule,
+            thresholds,
+            durationMinutes,
+            enabled,
+        } = req.body;
+
+        const config = await DeviceMode.findOneAndUpdate(
+            { deviceId: id },
+            {
+                deviceId: id,
+                mode: "auto",
+                autoConfig: {
+                    schedule,
+                    thresholds,
+                    durationMinutes,
+                    enabled,
                 },
-                durationMinutes: Math.ceil(durationSeconds / 60),
-                enabled,
             },
-        },
-        { upsert: true, new: true }
-    );
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true,
+            }
+        );
 
-    res.json({ success: true, config });
+        res.json({ success: true, config });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, message: "Update AUTO failed" });
+    }
 };
+
 
 // PATCH /devices/:id/ai
 export const updateAIConfig = async (req, res) => {
     try {
+        const { id } = req.params;
+
+        if (!isValidObjectId(id)) {
+            return res.status(400).json({ message: "Invalid deviceId" });
+        }
+
         const deviceMode = await DeviceMode.findOneAndUpdate(
-            { deviceId: req.params.id },
+            { deviceId: id },
             {
+                deviceId: id,
                 mode: "ai",
                 aiConfig: req.body,
             },
-            { new: true, upsert: true }
+            { new: true, upsert: true, setDefaultsOnInsert: true }
         );
 
         res.json(deviceMode);

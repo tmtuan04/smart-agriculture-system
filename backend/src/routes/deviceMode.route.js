@@ -131,7 +131,7 @@ router.patch("/:id/manual", updateManualConfig);
  *       - in: path
  *         name: id
  *         required: true
- *         description: Device ID
+ *         description: Device ID (MongoDB ObjectId)
  *         schema:
  *           type: string
  *           example: 6935513b52ef8c9bda001fcc
@@ -142,34 +142,56 @@ router.patch("/:id/manual", updateManualConfig);
  *           schema:
  *             type: object
  *             required:
- *               - hour
- *               - minute
- *               - lower
- *               - upper
- *               - durationSeconds
+ *               - schedule
+ *               - thresholds
+ *               - durationMinutes
  *               - enabled
  *             properties:
- *               hour:
+ *               schedule:
+ *                 type: object
+ *                 properties:
+ *                   hour:
+ *                     type: integer
+ *                     example: 10
+ *                   minute:
+ *                     type: integer
+ *                     example: 30
+ *               thresholds:
+ *                 type: object
+ *                 properties:
+ *                   soilMin:
+ *                     type: number
+ *                     example: 40
+ *                   soilMax:
+ *                     type: number
+ *                     example: 70
+ *               durationMinutes:
  *                 type: integer
- *                 example: 10
- *               minute:
- *                 type: integer
- *                 example: 30
- *               lower:
- *                 type: number
- *                 example: 40
- *               upper:
- *                 type: number
- *                 example: 70
- *               durationSeconds:
- *                 type: integer
- *                 example: 60
+ *                 example: 1
  *               enabled:
  *                 type: boolean
  *                 example: true
  *     responses:
  *       200:
  *         description: Auto configuration updated successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               config:
+ *                 deviceId: 6935513b52ef8c9bda001fcc
+ *                 mode: auto
+ *                 autoConfig:
+ *                   schedule:
+ *                     hour: 10
+ *                     minute: 30
+ *                   thresholds:
+ *                     soilMin: 40
+ *                     soilMax: 70
+ *                   durationMinutes: 1
+ *                   enabled: true
+ *       400:
+ *         description: Invalid deviceId
  *       500:
  *         description: Internal server error
  */
