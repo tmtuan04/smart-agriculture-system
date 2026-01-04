@@ -1,4 +1,4 @@
-import AiDecision from "../models/aidecision.model.js";
+import AiDecision from "../models/aiDecision.model.js";
 import Device from "../models/device.model.js";
 
 // [GET] Lấy lịch sử quyết định (Phân trang)
