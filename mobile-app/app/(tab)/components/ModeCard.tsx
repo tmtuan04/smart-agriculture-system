@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { manualPump } from "@/api/pump";
 import dayjs from "dayjs";
+import { getCurrentMode } from "@/api/deviceMode";
 
 export type ModeType = "MANUAL" | "AUTO" | "AI";
 
@@ -64,6 +65,34 @@ export const ModeCard = ({
 
         return () => interval && clearInterval(interval);
     }, [selectedMode, scheduleHour, scheduleMinute]);
+
+    useEffect(() => {
+        const fetchModeConfig = async () => {
+            try {
+                const res = await getCurrentMode(deviceId);
+
+                if (!res.ok) return;
+
+                const cfg = res.data;
+
+                // ===== AUTO =====
+                if (cfg.autoConfig) {
+                    setAutoSoilMin(cfg.autoConfig.thresholds.soilMin);
+                    setAutoSoilMax(cfg.autoConfig.thresholds.soilMax);
+
+                    setScheduleHour(cfg.autoConfig.schedule.hour);
+                    setScheduleMinute(cfg.autoConfig.schedule.minute);
+
+                    setDuration(cfg.autoConfig.durationMinutes ?? 1);
+                }
+            } catch (err) {
+                console.log("Load mode config error:", err);
+            }
+        };
+
+        fetchModeConfig();
+    }, [deviceId]);
+
 
     const formatTime = (ms: number) => {
         const m = Math.floor(ms / 60000);
