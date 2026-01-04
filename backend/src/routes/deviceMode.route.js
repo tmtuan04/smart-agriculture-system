@@ -26,10 +26,8 @@ const router = express.Router();
  *       - in: path
  *         name: id
  *         required: true
- *         description: Device ID
  *         schema:
  *           type: string
- *           example: 6935513b52ef8c9bda001fcc
  *     responses:
  *       200:
  *         description: Device mode configuration
@@ -37,17 +35,16 @@ const router = express.Router();
  *           application/json:
  *             example:
  *               deviceId: 6935513b52ef8c9bda001fcc
- *               mode: manual
- *               manualConfig:
- *                 isPumpOn: true
- *                 startedAt: "2025-12-14T10:00:00Z"
+ *               mode: auto
+ *               autoConfig:
+ *                 schedule:
+ *                   hour: 10
+ *                   minute: 30
+ *                 durationMinutes: 1
  *                 thresholds:
- *                   soilMin: 30
- *                   soilMax: 80
- *       404:
- *         description: Mode config not found
- *       500:
- *         description: Internal server error
+ *                   soilMin: 40
+ *                   soilMax: 70
+ *                 enabled: true
  */
 router.get("/:id/mode-config", getDeviceModeConfig);
 
@@ -91,7 +88,7 @@ router.patch("/:id/mode", updateDeviceMode);
  * @swagger
  * /device/{id}/manual:
  *   patch:
- *     summary: Update manual mode configuration
+ *     summary: Update manual mode thresholds
  *     tags: [DeviceMode]
  *     parameters:
  *       - in: path
@@ -104,13 +101,18 @@ router.patch("/:id/mode", updateDeviceMode);
  *       required: true
  *       content:
  *         application/json:
- *           example:
- *             isPumpOn: true
- *             startedAt: "2025-12-14T10:00:00Z"
- *             stoppedAt: null
- *             thresholds:
- *               soilMin: 30
- *               soilMax: 80
+ *           schema:
+ *             type: object
+ *             properties:
+ *               thresholds:
+ *                 type: object
+ *                 properties:
+ *                   soilMin:
+ *                     type: number
+ *                     example: 30
+ *                   soilMax:
+ *                     type: number
+ *                     example: 80
  *     responses:
  *       200:
  *         description: Manual configuration updated
@@ -132,22 +134,42 @@ router.patch("/:id/manual", updateManualConfig);
  *         description: Device ID
  *         schema:
  *           type: string
+ *           example: 6935513b52ef8c9bda001fcc
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
- *           example:
- *             schedule:
- *               hour: 6
- *               minute: 30
- *             duration: 15
- *             thresholds:
- *               soilMin: 40
- *               soilMax: 75
- *             enabled: true
+ *           schema:
+ *             type: object
+ *             required:
+ *               - hour
+ *               - minute
+ *               - lower
+ *               - upper
+ *               - durationSeconds
+ *               - enabled
+ *             properties:
+ *               hour:
+ *                 type: integer
+ *                 example: 10
+ *               minute:
+ *                 type: integer
+ *                 example: 30
+ *               lower:
+ *                 type: number
+ *                 example: 40
+ *               upper:
+ *                 type: number
+ *                 example: 70
+ *               durationSeconds:
+ *                 type: integer
+ *                 example: 60
+ *               enabled:
+ *                 type: boolean
+ *                 example: true
  *     responses:
  *       200:
- *         description: Auto configuration updated
+ *         description: Auto configuration updated successfully
  *       500:
  *         description: Internal server error
  */
