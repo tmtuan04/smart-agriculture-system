@@ -28,14 +28,12 @@ export async function generateDailyReportForDevice(deviceId, date) {
     const { start, end } = getUTCDayRange(date);
 
     try {
-        /* ========= SENSOR STATS ========= */
+        /* ========= SENSOR ========= */
         const sensorStats = await Sensor.aggregate([
             {
                 $match: {
                     deviceId: deviceObjectId,
                     timestamp: { $gte: start, $lt: end },
-
-                    // filter dữ liệu rác
                     temperature: { $gte: -10, $lte: 80 },
                     humidity: { $gte: 0, $lte: 100 },
                     soilMoisture: { $gte: 0, $lte: 100 },
@@ -61,7 +59,7 @@ export async function generateDailyReportForDevice(deviceId, date) {
             },
         ]);
 
-        /* ========= PUMP STATS ========= */
+        /* ========= PUMP ========= */
         const pumpStats = await PumpSession.aggregate([
             {
                 $match: {
@@ -74,83 +72,72 @@ export async function generateDailyReportForDevice(deviceId, date) {
                 $group: {
                     _id: null,
                     totalSessions: { $sum: 1 },
-
                     totalDurationSeconds: {
-                        $sum: { $ifNull: ["$durationSeconds", 0] },
-                    },
-
-                    avgSoilIncrease: {
-                        $avg: "$delta.soilMoisture",
-                    },
-
-                    maxSoilIncrease: {
-                        $max: "$delta.soilMoisture",
+                        $sum: { $ifNull: ["$delta.durationSeconds", 0] },
                     },
                 },
             },
         ]);
 
-        const s = sensorStats[0] || {};
-        const p = pumpStats[0] || {};
+        const s = sensorStats[0];
+        const p = pumpStats[0];
+
+        const update = {
+            deviceId: deviceObjectId,
+            reportDate: start,
+            period: { startAt: start, endAt: end },
+            status: "completed",
+            errorMessage: null,
+        };
+
+        if (s) {
+            update.stats = {
+                temperature: {
+                    avg: s.avgTemp,
+                    min: s.minTemp,
+                    max: s.maxTemp,
+                },
+                humidity: {
+                    avg: s.avgHum,
+                    min: s.minHum,
+                    max: s.maxHum,
+                },
+                soilMoisture: {
+                    avg: s.avgSoil,
+                    min: s.minSoil,
+                    max: s.maxSoil,
+                },
+            };
+        }
+
+        update.watering = {
+            totalSessions: p?.totalSessions || 0,
+            totalDurationMinutes: Number(
+                (((p?.totalDurationSeconds) || 0) / 60).toFixed(2)
+            ),
+        };
+
+        update.generatedFrom = {
+            sensorSampleCount: s?.sampleCount || 0,
+            pumpSessionCount: p?.totalSessions || 0,
+        };
 
         return await Report.findOneAndUpdate(
             { deviceId: deviceObjectId, reportDate: start },
-            {
-                deviceId: deviceObjectId,
-                reportDate: start,
-                period: { startAt: start, endAt: end },
-
-                /* ===== SENSOR ===== */
-                stats: sensorStats.length
-                    ? {
-                          temperature: {
-                              avg: s.avgTemp,
-                              min: s.minTemp,
-                              max: s.maxTemp,
-                          },
-                          humidity: {
-                              avg: s.avgHum,
-                              min: s.minHum,
-                              max: s.maxHum,
-                          },
-                          soilMoisture: {
-                              avg: s.avgSoil,
-                              min: s.minSoil,
-                              max: s.maxSoil,
-                          },
-                      }
-                    : undefined,
-
-                /* ===== WATERING ===== */
-                watering: {
-                    totalSessions: p.totalSessions || 0,
-                    totalDurationMinutes: Number(
-                        ((p.totalDurationSeconds || 0) / 60).toFixed(2)
-                    ),
-                    avgSoilIncrease: p.avgSoilIncrease ?? null,
-                    maxSoilIncrease: p.maxSoilIncrease ?? null,
-                },
-
-                /* ===== META ===== */
-                generatedFrom: {
-                    sensorSampleCount: s.sampleCount || 0,
-                    pumpSessionCount: p.totalSessions || 0,
-                },
-
-                status: "completed",
-                errorMessage: null,
-            },
+            { $set: update },
             { upsert: true, new: true }
         );
     } catch (err) {
         return await Report.findOneAndUpdate(
             { deviceId: deviceObjectId, reportDate: start },
             {
-                deviceId: deviceObjectId,
-                reportDate: start,
-                period: { startAt: start, endAt: end },
-                status: "failed",
-                errorMessage: err.message,
+                $set: {
+                    deviceId: deviceObjectId,
+                    reportDate: start,
+                    period: { startAt: start, endAt: end },
+                    status: "failed",
+                    errorMessage: err.message,
+                },
             },
             { upsert: true, new: true }
         );
