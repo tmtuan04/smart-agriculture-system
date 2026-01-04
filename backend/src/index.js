@@ -16,6 +16,7 @@ import reportRoutes from "./routes/report.route.js";
 import manualPumpRoutes from "./routes/manualPump.route.js";
 import { startAutoScheduler } from "./services/scheduler.service.js";
 import aiPumpRoutes from "./routes/aiPump.route.js";
+import aiDecisionRoutes from "./routes/aiDecision.route.js";
 
 const app = express();
 
@@ -47,6 +48,8 @@ app.use("/api/reports", reportRoutes);
 app.use("/api/device", manualPumpRoutes);
 
 app.use("/api/device", aiPumpRoutes);
+
+app.use("/api/device", aiDecisionRoutes);
 
 // Swagger UI
 app.use("/api-docs", swaggerUI.serve, swaggerUI.setup(swaggerSpec));
