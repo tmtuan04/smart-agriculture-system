@@ -1,6 +1,7 @@
 import mqtt from "mqtt";
 import "dotenv/config";
 import { saveSensorFromMQTT } from "../services/sensor.service.js";
+import { startHeartbeat } from "../services/mqtt.service.js";
 
 let mqttClient = null;
 
@@ -22,6 +23,7 @@ export const startMQTT = () => {
         mqttClient.subscribe(process.env.MQTT_TOPIC_PUB, () => {
             console.log("MQTT Subscribed");
         });
+        startHeartbeat();
     });
 
     mqttClient.on("message", async (_, message) => {
