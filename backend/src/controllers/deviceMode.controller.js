@@ -1,11 +1,11 @@
 import DeviceMode from "../models/deviceMode.model.js";
+import mongoose from "mongoose";
 
 // GET /devices/:id/mode-config
 export const getDeviceModeConfig = async (req, res) => {
     try {
-        const deviceMode = await DeviceMode.findOne({
-            deviceId: req.params.id,
-        });
+        const deviceId = new mongoose.Types.ObjectId(req.params.id);
+        const deviceMode = await DeviceMode.findOne({ deviceId });
 
         if (!deviceMode) {
             return res.status(404).json({
