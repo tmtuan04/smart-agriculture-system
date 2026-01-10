@@ -16,7 +16,6 @@ export default function TabsLayout() {
             tabBar={(props) => <CustomTabBar {...props} colorScheme={colorScheme} />}
         >
             <Tabs.Screen name="overview" options={{ title: "Overview" }} />
-            <Tabs.Screen name="devices" options={{ title: "Devices" }} />
             <Tabs.Screen name="alert" options={{ title: "Alert" }} />
             <Tabs.Screen name="reports" options={{ title: "Reports" }} />
             <Tabs.Screen name="setting" options={{ title: "Setting" }} />
@@ -26,7 +25,7 @@ export default function TabsLayout() {
 
 /*  CUSTOM TAB BAR  */
 
-function CustomTabBar({ state, descriptors, navigation, colorScheme }: any) {
+function CustomTabBar({ state, descriptors, navigation }: any) {
     return (
         <View style={styles.wrapper}>
             <View style={styles.container}>

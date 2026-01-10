@@ -1,4 +1,30 @@
 import { BASE_URL } from "./config";
+import * as SecureStore from "expo-secure-store"
+
+export const getMeApi = async () => {
+    const token = await SecureStore.getItemAsync("token");
+
+    if (!token) {
+        return {
+            ok: false,
+            data: { message: "Token not found" },
+        };
+    }
+
+    const response = await fetch(`${BASE_URL}/auth/me`, {
+        method: "GET",
+        headers: {
+            "Accept": "application/json",
+            "Authorization": `Bearer ${token}`,
+        },
+    });
+
+    const data = await response.json();
+    return {
+        ok: response.ok,
+        data,
+    };
+};
 
 export const loginApi = async (email: string, password: string) => {
     const response = await fetch(`${BASE_URL}/auth/login`, {

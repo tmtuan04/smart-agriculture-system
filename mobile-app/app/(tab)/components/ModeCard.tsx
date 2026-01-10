@@ -1,5 +1,4 @@
 import React, { useEffect, useState } from "react";
-// Thêm dòng này ở đầu file ModeCard.tsx
 import MaterialCommunityIcons from "react-native-vector-icons/MaterialCommunityIcons";
 import {
   View,
