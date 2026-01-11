@@ -1,5 +1,6 @@
 import Report from "../models/report.model.js";
 import Sensor from "../models/sensor.model.js";
+import PumpSession from "../models/pumpSession.model.js";
 
 // GET /reports
 export const getReports = async (req, res) => {
@@ -32,11 +33,15 @@ export const getReports = async (req, res) => {
 // GET /reports/:id
 export const getReportById = async (req, res) => {
     try {
-        const report = await Report.findById(req.params.id)
-            .populate("deviceId", "name deviceId");
+        const report = await Report.findById(req.params.id).populate(
+            "deviceId",
+            "name deviceId"
+        );
 
         if (!report) {
-            return res.status(404).json({ success: false, message: "Report not found" });
+            return res
+                .status(404)
+                .json({ success: false, message: "Report not found" });
         }
 
         res.status(200).json({ success: true, data: report });
@@ -52,7 +57,7 @@ export async function generateDailyReportForDevice(deviceId, reportDate) {
     const endOfDay = new Date(startOfDay);
     endOfDay.setUTCDate(endOfDay.getUTCDate() + 1);
 
-    // Tạo report trước (pending) để tránh cron chạy trùng
+    // Lock / upsert report
     let report = await Report.findOneAndUpdate(
         { deviceId, reportDate: startOfDay },
         {
@@ -64,12 +69,19 @@ export async function generateDailyReportForDevice(deviceId, reportDate) {
                 endAt: endOfDay,
             },
             status: "pending",
+            errorMessage: undefined,
         },
         { upsert: true, new: true }
     );
 
     try {
-        const stats = await Sensor.aggregate([
+        /* ================= SENSOR ================= */
+        const sensorCount = await Sensor.countDocuments({
+            deviceId,
+            timestamp: { $gte: startOfDay, $lt: endOfDay },
+        });
+
+        const sensorStats = await Sensor.aggregate([
             {
                 $match: {
                     deviceId,
@@ -90,43 +102,76 @@ export async function generateDailyReportForDevice(deviceId, reportDate) {
                     avgSoil: { $avg: "$soilMoisture" },
                     minSoil: { $min: "$soilMoisture" },
                     maxSoil: { $max: "$soilMoisture" },
-
-                    count: { $sum: 1 },
                 },
             },
-        ]); 
+        ]);
 
-        if (!stats.length) {
-            report.sampleCount = 0;
-            report.status = "completed";
-            report.generatedAt = new Date();
-            await report.save();
-            return report;
+        /* ================= PUMP ================= */
+        const pumpStats = await PumpSession.aggregate([
+            {
+                $match: {
+                    deviceId,
+                    startedAt: { $gte: startOfDay, $lt: endOfDay },
+                    status: "completed",
+                },
+            },
+            {
+                $group: {
+                    _id: null,
+                    totalSessions: { $sum: 1 },
+                    totalDurationSeconds: { $sum: "$durationSeconds" },
+                    avgSoilIncrease: { $avg: "$delta.soilMoisture" },
+                    maxSoilIncrease: { $max: "$delta.soilMoisture" },
+                },
+            },
+        ]);
+
+        /* ================= ASSIGN ================= */
+        if (sensorStats.length) {
+            const s = sensorStats[0];
+
+            report.stats = {
+                temperature: {
+                    avg: s.avgTemp,
+                    min: s.minTemp,
+                    max: s.maxTemp,
+                },
+                humidity: {
+                    avg: s.avgHum,
+                    min: s.minHum,
+                    max: s.maxHum,
+                },
+                soilMoisture: {
+                    avg: s.avgSoil,
+                    min: s.minSoil,
+                    max: s.maxSoil,
+                },
+            };
         }
 
-        const s = stats[0];
-
-        report.stats = {
-            temperature: {
-                avg: s.avgTemp,
-                min: s.minTemp,
-                max: s.maxTemp,
-            },
-            humidity: {
-                avg: s.avgHum,
-                min: s.minHum,
-                max: s.maxHum,
-            },
-            soilMoisture: {
-                avg: s.avgSoil,
-                min: s.minSoil,
-                max: s.maxSoil,
-            },
+        report.generatedFrom = {
+            sensorCount,
+            pumpSessionCount: pumpStats.length
+                ? pumpStats[0].totalSessions
+                : 0,
         };
 
-        report.sampleCount = s.count;
+        if (pumpStats.length) {
+            const p = pumpStats[0];
+            report.watering = {
+                totalSessions: p.totalSessions,
+                totalDurationMinutes: Math.round(
+                    (p.totalDurationSeconds || 0) / 60
+                ),
+                avgSoilIncrease: p.avgSoilIncrease,
+                maxSoilIncrease: p.maxSoilIncrease,
+            };
+        }
+
+        report.sampleCount = sensorCount;
         report.status = "completed";
         report.generatedAt = new Date();
+        report.errorMessage = undefined;
 
         await report.save();
         return report;

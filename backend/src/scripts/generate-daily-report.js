@@ -5,20 +5,12 @@ import { generateDailyReportForDevice } from "../controllers/report.controller.j
 
 async function run() {
     await mongoose.connect(process.env.MONGODB_URL);
-    console.log("MongoDB connected");
 
-    const yesterday = new Date();
-    yesterday.setUTCDate(yesterday.getUTCDate() - 1);
-
+    const today = new Date();
     const devices = await Device.find({}, { _id: 1 });
 
     for (const device of devices) {
-        try {
-            await generateDailyReportForDevice(device._id, yesterday);
-            console.log(`✔ Report generated for device ${device._id}`);
-        } catch (err) {
-            console.error(`✖ Report failed for device ${device._id}`, err.message);
-        }
+        await generateDailyReportForDevice(device._id, today);
     }
 
     await mongoose.disconnect();

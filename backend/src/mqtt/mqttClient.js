@@ -3,6 +3,7 @@ import "dotenv/config";
 import { saveSensorFromMQTT } from "../services/sensor.service.js";
 import { startHeartbeat } from "../services/mqtt.service.js";
 import { saveAlertFromMQTT } from "../services/alert.service.js";
+import { signMQTTData } from "../lib/mqttAuth.js";
 
 let mqttClient = null;
 
@@ -52,10 +53,17 @@ export const startMQTT = () => {
     });
 };
 
-export const publishMQTT = (topic, payload) => {
+export const publishMQTT = (topic, rawData) => {
     if (!mqttClient || !mqttClient.connected) {
         console.warn("MQTT not connected");
         return;
     }
-    mqttClient.publish(topic, JSON.stringify(payload), { qos: 1 });
+
+    const signedPayload = signMQTTData(rawData);
+
+    mqttClient.publish(
+        topic,
+        JSON.stringify(signedPayload),
+        { qos: 1 }
+    );
 };

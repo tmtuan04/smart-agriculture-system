@@ -3,6 +3,7 @@ import DeviceMode from "../models/deviceMode.model.js";
 import PumpSession from "../models/pumpSession.model.js";
 import Sensor from "../models/sensor.model.js";
 import { publishMQTT } from "../mqtt/mqttClient.js";
+import { signMQTTData } from "../lib/mqttAuth.js";
 
 export const manualPumpControl = async ({ deviceId, action }) => {
     if (!["on", "off"].includes(action)) {
@@ -27,10 +28,11 @@ export const manualPumpControl = async ({ deviceId, action }) => {
             trigger: "user",
             sensorBefore: sensorBefore
                 ? {
-                    soilMoisture: sensorBefore.soilMoisture,
-                    temperature: sensorBefore.temperature,
-                    humidity: sensorBefore.humidity,
-                } : null,
+                      soilMoisture: sensorBefore.soilMoisture,
+                      temperature: sensorBefore.temperature,
+                      humidity: sensorBefore.humidity,
+                  }
+                : null,
         });
     }
 
@@ -77,10 +79,14 @@ export const manualPumpControl = async ({ deviceId, action }) => {
     );
 
     // Publish MQTT command
-    publishMQTT(process.env.MQTT_TOPIC_SUB, {
-        mode: "manual",
-        pump: action,
-    });
+    publishMQTT(
+        process.env.MQTT_TOPIC_SUB,
+        signMQTTData({
+            mode: "manual",
+            pump: action,
+            timestamp: new Date().toISOString(),
+        })
+    );
 
     return { success: true };
 };

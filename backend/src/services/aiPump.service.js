@@ -6,6 +6,7 @@ import PumpSession from "../models/pumpSession.model.js";
 import DeviceMode from "../models/deviceMode.model.js";
 import AiDecision from "../models/aiDecision.model.js";
 import { publishMQTT } from "../mqtt/mqttClient.js";
+import { signMQTTData } from "../lib/mqttAuth.js";
 
 // --- 1. SETUP AI CONFIGURATION ---
 // Đường dẫn file (tùy chỉnh lại cho đúng cấu trúc thư mục của bạn)
@@ -189,12 +190,16 @@ const startPump = async (deviceId, sensorData) => {
 
   console.log(`[AI-MODE][PUMP] START session=${session._id}`);
 
-  publishMQTT(process.env.MQTT_TOPIC_SUB, {
-    mode: "ai",
-    pump: "on",
-    trigger: "ai",
-    timestamp: new Date().toISOString(),
-  });
+  publishMQTT(
+      process.env.MQTT_TOPIC_SUB,
+      signMQTTData({
+          mode: "ai",
+          pump: "on",
+          trigger: "ai",
+          timestamp: new Date().toISOString(),
+      })
+  );
+
   await AiDecision.create({
     deviceId,
     action: "on",
@@ -221,12 +226,15 @@ const stopPump = async (session, sensorAfter) => {
   }
 
   await session.save();
-  publishMQTT(process.env.MQTT_TOPIC_SUB, {
-    mode: "ai",
-    pump: "off",
-    trigger: "ai",
-    timestamp: new Date().toISOString(),
-  });
+  publishMQTT(
+      process.env.MQTT_TOPIC_SUB,
+      signMQTTData({
+          mode: "ai",
+          pump: "off",
+          trigger: "ai",
+          timestamp: new Date().toISOString(),
+      })
+  );
 
   await AiDecision.create({
     deviceId: session.deviceId,

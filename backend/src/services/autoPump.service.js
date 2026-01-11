@@ -1,6 +1,7 @@
 import Sensor from "../models/sensor.model.js";
 import PumpSession from "../models/pumpSession.model.js";
 import { publishMQTT } from "../mqtt/mqttClient.js";
+import { signMQTTData } from "../lib/mqttAuth.js";
 
 export const runAutoPumpForDevice = async (deviceMode) => {
     const { deviceId, autoConfig } = deviceMode;
@@ -50,14 +51,17 @@ export const runAutoPumpForDevice = async (deviceMode) => {
         );
 
         // MQTT ON
-        publishMQTT(process.env.MQTT_TOPIC_SUB, {
-            mode: "auto",
-            pump: "on",
-            lower: soilMin,
-            upper: soilMax,
-            duration: durationSeconds,
-            timestamp: new Date().toISOString(),
-        });
+        publishMQTT(
+            process.env.MQTT_TOPIC_SUB,
+            signMQTTData({
+                mode: "auto",
+                pump: "on",
+                lower: soilMin,
+                upper: soilMax,
+                duration: durationSeconds,
+                timestamp: new Date().toISOString(),
+            })
+        );
 
         console.log(`[AUTO][MQTT] Published ON for device ${deviceId}`);
 
@@ -114,10 +118,14 @@ const stopAutoPump = async (sessionId) => {
 
         await session.save();
 
-        publishMQTT(process.env.MQTT_TOPIC_SUB, {
-            mode: "auto",
-            pump: "off",
-        });
+        publishMQTT(
+            process.env.MQTT_TOPIC_SUB,
+            signMQTTData({
+                mode: "auto",
+                pump: "off",
+                timestamp: new Date().toISOString(),
+            })
+        );
 
         console.log(
             `[AUTO][MQTT] Published OFF for device ${session.deviceId}`

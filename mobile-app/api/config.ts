@@ -1,4 +1,4 @@
 export const BASE_URL =
-    "http://localhost:3000/api";
+    "https://smart-agriculture-system-f2wg.onrender.com/api";
 
 // http://localhost:3000

@@ -1,6 +1,7 @@
 import DeviceMode from "../models/deviceMode.model.js";
-import mongoose, { isValidObjectId } from "mongoose";
+import { isValidObjectId } from "mongoose";
 import { publishMQTT } from "../mqtt/mqttClient.js";
+import { signMQTTData } from "../lib/mqttAuth.js";
 
 // GET /devices/:id/mode-config
 export const getDeviceModeConfig = async (req, res) => {
@@ -55,7 +56,13 @@ export const updateDeviceMode = async (req, res) => {
 
             console.log("[API] Publish manual mode command:", payload);
 
-            publishMQTT(process.env.MQTT_TOPIC_SUB, payload);
+            publishMQTT(
+                process.env.MQTT_TOPIC_SUB,
+                signMQTTData({
+                    mode: "manual",
+                    timestamp: new Date().toISOString(),
+                })
+            );
         }
 
         res.json(deviceMode);
