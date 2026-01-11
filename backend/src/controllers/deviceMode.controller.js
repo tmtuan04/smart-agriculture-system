@@ -1,10 +1,6 @@
 import DeviceMode from "../models/deviceMode.model.js";
-import mongoose from "mongoose";
-
-// Chuyển mode manual -> pub thêm mode sang
-
-export const isValidObjectId = (id) =>
-    mongoose.Types.ObjectId.isValid(id);
+import mongoose, { isValidObjectId } from "mongoose";
+import { publishMQTT } from "../mqtt/mqttClient.js";
 
 // GET /devices/:id/mode-config
 export const getDeviceModeConfig = async (req, res) => {
@@ -52,12 +48,18 @@ export const updateDeviceMode = async (req, res) => {
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
 
+        if (mode === "manual") {
+            publishMQTT(process.env.MQTT_TOPIC_SUB, {
+                device_id: id,
+                mode: "manual",
+            });
+        }
+
         res.json(deviceMode);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 };
-
 
 // PATCH /devices/:id/manual
 // Lưu ý: config theo mode tự động chuyển mode theo nó
@@ -97,12 +99,7 @@ export const updateAutoConfig = async (req, res) => {
             });
         }
 
-        const {
-            schedule,
-            thresholds,
-            durationMinutes,
-            enabled,
-        } = req.body;
+        const { schedule, thresholds, durationMinutes, enabled } = req.body;
 
         // FE gửi giờ VN (GMT+7) → convert sang UTC
         let utcHour = schedule.hour - 7;
