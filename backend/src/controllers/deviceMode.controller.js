@@ -1,6 +1,8 @@
 import DeviceMode from "../models/deviceMode.model.js";
 import mongoose from "mongoose";
 
+// Chuyển mode manual -> pub thêm mode sang
+
 export const isValidObjectId = (id) =>
     mongoose.Types.ObjectId.isValid(id);
 
