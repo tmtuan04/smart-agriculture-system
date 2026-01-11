@@ -1,10 +1,11 @@
 import Sensor from "../models/sensor.model.js";
 import Device from "../models/device.model.js";
 
+// Không cần cái này
 export const insertSensorData = async (req, res) => {
     try {
         const {
-            deviceId, // string: ESP32_FARM_01
+            deviceId,
             temperature,
             humidity,
             soilMoisture,

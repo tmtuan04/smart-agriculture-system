@@ -2,6 +2,7 @@ import mqtt from "mqtt";
 import "dotenv/config";
 import { saveSensorFromMQTT } from "../services/sensor.service.js";
 import { startHeartbeat } from "../services/mqtt.service.js";
+import { saveAlertFromMQTT } from "../services/alert.service.js";
 
 let mqttClient = null;
 
@@ -20,18 +21,27 @@ export const startMQTT = () => {
 
     mqttClient.on("connect", () => {
         console.log("MQTT Connected");
-        mqttClient.subscribe(process.env.MQTT_TOPIC_PUB, () => {
+        mqttClient.subscribe([process.env.MQTT_TOPIC_PUB, process.env.MQTT_TOPIC_ALERT], () => {
             console.log("MQTT Subscribed");
         });
         startHeartbeat();
     });
 
-    mqttClient.on("message", async (_, message) => {
+    mqttClient.on("message", async (topic, message) => {
         try {
             const payload = JSON.parse(message.toString());
 
-            console.log(payload)
-            await saveSensorFromMQTT(payload);
+            console.log("MQTT:", topic, payload);
+
+            // Sensor data
+            if (topic == process.env.MQTT_TOPIC_PUB) {
+                await saveSensorFromMQTT(payload);
+            }
+
+            // Alert
+            if (topic == process.env.MQTT_TOPIC_ALERT) {
+                await saveAlertFromMQTT(payload);
+            }
         } catch {
             console.warn("Invalid MQTT payload:", message.toString());
         }
@@ -47,8 +57,5 @@ export const publishMQTT = (topic, payload) => {
         console.warn("MQTT not connected");
         return;
     }
-
-    console.log(payload);
-
     mqttClient.publish(topic, JSON.stringify(payload), { qos: 1 });
 };
