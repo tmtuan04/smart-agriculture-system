@@ -49,10 +49,13 @@ export const updateDeviceMode = async (req, res) => {
         );
 
         if (mode === "manual") {
-            publishMQTT(process.env.MQTT_TOPIC_SUB, {
-                device_id: id,
+            const payload = {
                 mode: "manual",
-            });
+            };
+
+            console.log("[API] Publish manual mode command:", payload);
+
+            publishMQTT(process.env.MQTT_TOPIC_SUB, payload);
         }
 
         res.json(deviceMode);
