@@ -56,22 +56,20 @@ export const startMQTT = () => {
     });
 };
 
-export const publishMQTT = (topic, rawData) => {
+export const publishMQTT = (topic, rawData, { sign = true } = {}) => {
     if (!mqttClient || !mqttClient.connected) {
-        console.warn("MQTT not connected");
+        console.warn("[MQTT] Not connected");
         return;
     }
 
-    const signedPayload = signMQTTData(rawData);
+    const payload = sign ? signMQTTData(rawData) : rawData;
 
-    console.info(
-        "[MQTT PUBLISH]",
-        JSON.stringify({
-            topic,
-            payload: signedPayload,
-            time: new Date().toISOString(),
-        })
-    );
+    console.info("[MQTT PUBLISH]", {
+        topic,
+        sign,
+        payload,
+        time: new Date().toISOString(),
+    });
 
-    mqttClient.publish(topic, JSON.stringify(signedPayload), { qos: 1 });
+    mqttClient.publish(topic, JSON.stringify(payload), { qos: 1 });
 };

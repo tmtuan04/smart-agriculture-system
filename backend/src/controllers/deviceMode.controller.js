@@ -47,19 +47,14 @@ export const updateDeviceMode = async (req, res) => {
             },
             { new: true, upsert: true, setDefaultsOnInsert: true }
         );
+        const payload = {
+            mode,
+            timestamp: new Date().toISOString(),
+        };
 
-        if (mode === "manual") {
-            const payload = {
-                mode: "manual",
-            };
+        console.log("[API] Publish device mode command:", payload);
 
-            console.log("[API] Publish manual mode command:", payload);
-
-            publishMQTT(process.env.MQTT_TOPIC_SUB, {
-                mode: "manual",
-                timestamp: new Date().toISOString(),
-            });
-        }
+        publishMQTT(process.env.MQTT_TOPIC_SUB, payload);
 
         res.json(deviceMode);
     } catch (err) {

@@ -1,7 +1,7 @@
 import Alert from "../models/alert.model.js";
 import Device from "../models/device.model.js";
 
-// 5 phút mới lưu vào db
+const ALERT_COOLDOWN_MS = 10 * 60 * 1000; // 10 phút
 
 export const saveAlertFromMQTT = async (data) => {
     try {
@@ -18,7 +18,6 @@ export const saveAlertFromMQTT = async (data) => {
 
         const { type, message, currentValue } = data.alert;
 
-        // Map MQTT alert type → schema type
         let alertType;
         let source;
 
@@ -43,6 +42,26 @@ export const saveAlertFromMQTT = async (data) => {
                 return;
         }
 
+        const lastAlert = await Alert.findOne({
+            deviceId: device._id,
+            type: alertType,
+        }).sort({ createdAt: -1 });
+
+        const now = Date.now();
+
+        if (lastAlert) {
+            const diff = now - lastAlert.createdAt.getTime();
+
+            if (diff < ALERT_COOLDOWN_MS) {
+                console.log(
+                    `[ALERT SKIP] ${alertType} - ${device.deviceId} (${Math.round(
+                        diff / 1000
+                    )}s ago)`
+                );
+                return;
+            }
+        }
+
         await Alert.create({
             deviceId: device._id,
             type: alertType,
@@ -56,7 +75,7 @@ export const saveAlertFromMQTT = async (data) => {
                 : new Date(),
         });
 
-        console.log("Alert saved:", type, "-", device.deviceId);
+        console.log("Alert saved:", alertType, "-", device.deviceId);
     } catch (err) {
         console.error("Save alert error:", err.message);
     }
