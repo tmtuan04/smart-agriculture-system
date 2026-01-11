@@ -22,9 +22,12 @@ export const startMQTT = () => {
 
     mqttClient.on("connect", () => {
         console.log("MQTT Connected");
-        mqttClient.subscribe([process.env.MQTT_TOPIC_PUB, process.env.MQTT_TOPIC_ALERT], () => {
-            console.log("MQTT Subscribed");
-        });
+        mqttClient.subscribe(
+            [process.env.MQTT_TOPIC_PUB, process.env.MQTT_TOPIC_ALERT],
+            () => {
+                console.log("MQTT Subscribed");
+            }
+        );
         startHeartbeat();
     });
 
@@ -61,9 +64,14 @@ export const publishMQTT = (topic, rawData) => {
 
     const signedPayload = signMQTTData(rawData);
 
-    mqttClient.publish(
-        topic,
-        JSON.stringify(signedPayload),
-        { qos: 1 }
+    console.info(
+        "[MQTT PUBLISH]",
+        JSON.stringify({
+            topic,
+            payload: signedPayload,
+            time: new Date().toISOString(),
+        })
     );
+
+    mqttClient.publish(topic, JSON.stringify(signedPayload), { qos: 1 });
 };
