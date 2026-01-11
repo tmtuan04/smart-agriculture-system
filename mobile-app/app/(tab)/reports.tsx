@@ -15,7 +15,6 @@ export default function ReportsScreen() {
     const [modalVisible, setModalVisible] = useState(false);
     const [loadingDetail, setLoadingDetail] = useState(false);
 
-
     useEffect(() => {
         const fetchReports = async () => {
             const res = await getReportsApi();
