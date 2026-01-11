@@ -6,6 +6,7 @@ import { saveAlertFromMQTT } from "../services/alert.service.js";
 
 let mqttClient = null;
 
+
 export const startMQTT = () => {
     const MQTT_URL = `mqtts://${process.env.MQTT_HOST}:${
         process.env.MQTT_PORT || 8883

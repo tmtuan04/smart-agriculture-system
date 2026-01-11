@@ -1,6 +1,8 @@
 import Alert from "../models/alert.model.js";
 import Device from "../models/device.model.js";
 
+// 5 phút mới lưu vào db
+
 export const saveAlertFromMQTT = async (data) => {
     try {
         if (!data.device_id || !data.alert?.type || !data.alert?.message) {
