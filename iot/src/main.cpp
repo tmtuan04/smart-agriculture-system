@@ -11,6 +11,8 @@
 #include <time.h>
 #include "cert.h"
 
+#include <mbedtls/md.h>
+
 // --- 1. CẤU HÌNH THÔNG TIN MẠNG (ĐIỀN VÀO ĐÂY) ---
 const char* ssid = WIFI_SSID;
 const char* password = WIFI_PASS;
@@ -22,8 +24,11 @@ const int mqtt_port = atoi(MQTT_PORT);
 const char* mqtt_topic_pub = MQTT_TOPIC_PUB; // Gửi dữ liệu lên
 const char* mqtt_topic_sub = MQTT_TOPIC_SUB;  // Nhận lệnh về
 const char* mqtt_topic_heartbeat = MQTT_TOPIC_HEARTBEAT; // Gửi tín hiệu sống
+const char *mqtt_topic_alert = MQTT_TOPIC_ALERT;
 
 const char* DEVICE_ID = "ESP32_SMARTFARM_01";
+
+const char* SECRET_KEY = MY_SECRET_KEY;
 
 
 // --- 2. CẤU HÌNH CHÂN (TƯƠNG THÍCH ESP32 30 PIN) ---
@@ -55,6 +60,7 @@ float heightTankWater = 100.0;      // Chiều cao bể (cm)
 // Biến toàn cục
 bool isAutoMode = true; // Mặc định chạy tự động
 String pumpStatus = "OFF";
+String warningMsg = "None";
 
 int pumpMaxDuration = 10;   // Thời gian tưới tối đa (giây), mặc định 60s
 unsigned long pumpStartTime = 0; // Lưu thời điểm bắt đầu bật bơm
@@ -74,6 +80,32 @@ NTPClient timeClient(ntpUDP, "pool.ntp.org", 7 * 3600);
 const char* ntpServer = "pool.ntp.org";
 const long  gmtOffset_sec = 7 * 3600; // GMT+7 cho Việt Nam
 const int   daylightOffset_sec = 0;
+
+// === HÀM TẠO CHỮ KÝ SỐ (HMAC-SHA256) ===
+// ============================================================
+String hmac_sha256(String payload, const char* key) {
+  byte hmacResult[32];
+  mbedtls_md_context_t ctx;
+  mbedtls_md_type_t md_type = MBEDTLS_MD_SHA256;
+ 
+  const size_t keyLength = strlen(key);            
+  const size_t payloadLength = payload.length();
+ 
+  mbedtls_md_init(&ctx);
+  mbedtls_md_setup(&ctx, mbedtls_md_info_from_type(md_type), 1);
+  mbedtls_md_hmac_starts(&ctx, (const unsigned char *) key, keyLength);
+  mbedtls_md_hmac_update(&ctx, (const unsigned char *) payload.c_str(), payloadLength);
+  mbedtls_md_hmac_finish(&ctx, hmacResult);
+  mbedtls_md_free(&ctx);
+ 
+  String hashStr = "";
+  for(int i=0; i<32; i++){
+      if(hmacResult[i] < 16) hashStr += "0";
+      hashStr += String(hmacResult[i], HEX);
+  }
+  return hashStr;
+}
+// ============================================================
 
 // --- HÀM ĐO KHOẢNG CÁCH ---
 float getDistance() {
@@ -108,13 +140,63 @@ String getFullTimestamp() {
   return String(timeStringBuff);
 }
 
+// --- HÀM GỬI CẢNH BÁO (ALERT) ---
+void sendAlert(String type, String message, float currentVal, float thresholdVal) {
+  // Kiểm tra thời gian để tránh spam (chỉ gửi lại sau 60s nếu lỗi vẫn còn)
+  // unsigned long now = millis();
+  // if (now - lastAlertTime < ALERT_COOLDOWN) {
+  //     return; 
+  // }
+  // lastAlertTime = now; 
+
+  StaticJsonDocument<512> doc;
+  
+  doc["device_id"] = DEVICE_ID;
+  doc["epoch"] = timeClient.getEpochTime(); // Chống Replay
+
+  JsonObject alertObj = doc.createNestedObject("alert");
+  alertObj["type"] = type;           
+  alertObj["message"] = message;     
+  alertObj["currentValue"] = currentVal;
+
+  // Đặt tên key ngưỡng (threshold) linh hoạt theo loại cảnh báo
+  if (type == "soilMoisture") {
+      alertObj["soilMin"] = thresholdVal;
+  } 
+  else if (type == "water") {
+      alertObj["minLevel"] = thresholdVal;
+  }
+  else if (type == "pumpTimeout") {
+      alertObj["maxDuration"] = thresholdVal;
+  }
+  else {
+      alertObj["limit"] = thresholdVal;
+  }
+
+  // Ký số
+  // String rawJson;
+  // serializeJson(doc, rawJson);
+  // String signature = hmac_sha256(rawJson, SECRET_KEY);
+  // doc["signature"] = signature;
+
+  // Gửi sang topic Alert
+  char buffer[512];
+  serializeJson(doc, buffer);
+  client.publish(mqtt_topic_alert, buffer);
+  
+  Serial.print("⚠️ ALERT SENT: ");
+  Serial.println(buffer);
+}
+
 // --- HÀM DỪNG BƠM KHẨN CẤP/AN TOÀN ---
 void stopPump(String reason) {
   digitalWrite(RELAY_PIN, RELAY_OFF);
   isPumpRunning = false;
-  pumpStatus = "OFF (" + reason + ")";
+  warningMsg = reason;
+  pumpStatus = "OFF";
   Serial.println("-> Stop Pump: " + reason);
 }
+
 
 // --- HÀM CALLBACK (XỬ LÝ LỆNH TỪ MQTT) ---
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -129,14 +211,16 @@ void callback(char* topic, byte* payload, unsigned int length) {
   
   Serial.print("Nhan lenh: "); Serial.println(message);
 
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   DeserializationError error = deserializeJson(doc, message);
   if (error) return;
 
+  JsonObject data = doc["data"];
+
   // 1. Chuyển chế độ
   // 2. CHUYỂN CHẾ ĐỘ (MODE SWITCHING)
-  if (doc.containsKey("mode")) {
-    const char* newModeStr = doc["mode"];
+  if (data.containsKey("mode")) {
+    const char* newModeStr = data["mode"];
     SystemMode nextMode = currentMode;
 
     if (strcmp(newModeStr, "auto") == 0) nextMode = MODE_AUTO;
@@ -149,7 +233,7 @@ void callback(char* topic, byte* payload, unsigned int length) {
 
     if (nextMode != currentMode) {
       currentMode = nextMode;
-      stopPump("Mode Changed"); // An toàn: Dừng bơm khi chuyển logic
+      stopPump("Chuyển chế độ"); // An toàn: Dừng bơm khi chuyển logic
       Serial.printf("-> Chuyen sang che do: %s\n", newModeStr);
     }
   }
@@ -159,17 +243,17 @@ void callback(char* topic, byte* payload, unsigned int length) {
     int tempLower = soilLowerLimit;
     int tempUpper = soilUpperLimit;
 
-    if (doc.containsKey("lower")) {
+    if (data.containsKey("lower")) {
       tempLower = doc["lower"];
       updated = true;
     }
-    if (doc.containsKey("upper")) {
+    if (data.containsKey("upper")) {
       tempUpper = doc["upper"];
       updated = true;
     }
 
-    if (doc.containsKey("duration")) {
-        pumpMaxDuration = doc["duration"];
+    if (data.containsKey("duration")) {
+        pumpMaxDuration = data["duration"];
         Serial.printf("-> Cap nhat thoi gian tuoi toi da: %d s\n", pumpMaxDuration);
     }
 
@@ -185,14 +269,14 @@ void callback(char* topic, byte* payload, unsigned int length) {
     }
   } else {
     // Nếu đang ở Manual/AI mà gửi lệnh đổi ngưỡng
-    if (doc.containsKey("lower") || doc.containsKey("upper")) {
+    if (data.containsKey("lower") || data.containsKey("upper")) {
       Serial.println("Tu choi: Phai chuyen sang AUTO moi co the doi nguong.");
     }
   }
 
   // 3. Bật tắt bơm (Chỉ Manual) - Giữ nguyên logic của bạn
-  if ((currentMode == MODE_MANUAL || currentMode == MODE_AI) && doc.containsKey("pump")) {
-    const char* cmd = doc["pump"];
+  if ((currentMode == MODE_MANUAL || currentMode == MODE_AI) && data.containsKey("pump")) {
+    const char* cmd = data["pump"];
     
     // Check nước
     float dist = getDistance();
@@ -204,13 +288,13 @@ void callback(char* topic, byte* payload, unsigned int length) {
        if (strcmp(cmd, "on") == 0) {
           if (!isPumpRunning) {
               digitalWrite(RELAY_PIN, RELAY_ON);
-              pumpStatus = (currentMode == MODE_AI) ? "ON (AI)" : "ON (Manual)";
+              pumpStatus = (currentMode == MODE_AI) ? "ON" : "ON";
               isPumpRunning = true;
               pumpStartTime = millis(); 
               Serial.println("-> Bat bom (Remote Command)");
           }
        } else if (strcmp(cmd, "off") == 0) {
-          stopPump((currentMode == MODE_AI) ? "Off by AI" : "Off by User");
+          stopPump("Lệnh tắt từ xa");
        }
     }
   }
@@ -310,23 +394,29 @@ void loop() {
     if (isnan(temp) || isnan(hum)) Serial.println("DHT Error");
 
     // 2. Logic điều khiển (Smart)
+    if (soilPercent < soilLowerLimit){
+        sendAlert("soilMoisture", "Phát hiện đất khô.", soilPercent, soilLowerLimit);
+    }
     if (waterLevel < MIN_WATER_LEVEL) {
-        digitalWrite(RELAY_PIN, RELAY_OFF);
-        pumpStatus = "OFF (Can Nuoc)";
-        isPumpRunning = false;
+        stopPump("Bể cần nước");
+        // Gửi Alert: "Loại: water", "Ngưỡng: 10%"
+        sendAlert("water", "Nguy hiểm: Bể nước sắp cạn!", waterLevel, MIN_WATER_LEVEL);
     } 
     else {
         // --- LOGIC MODE AUTO (CỤC BỘ) ---
         if (currentMode == MODE_AUTO) {
             if (soilPercent < soilLowerLimit && !isPumpRunning) {
                 digitalWrite(RELAY_PIN, RELAY_ON);
-                pumpStatus = "ON (Auto)";
+                pumpStatus = "ON";
                 isPumpRunning = true;
                 pumpStartTime = millis();
                 Serial.println("-> Auto Start Pump");
+
+                // Gửi Alert: "Loại: soilMoisture", "Ngưỡng: soilLowerLimit"
+                sendAlert("soilMoisture", "Phát hiện đất khô.", soilPercent, soilLowerLimit);
             }
             else if (isPumpRunning && soilPercent > soilUpperLimit) {
-                stopPump("Auto - Du am");
+                stopPump("Đủ ẩm");
             }
         }
         
@@ -338,7 +428,10 @@ void loop() {
         if (isPumpRunning) {
             unsigned long elapsed = (millis() - pumpStartTime) / 1000;
             if (elapsed >= pumpMaxDuration) {
-                stopPump("Qua thoi gian toi da (Safety)");
+                stopPump("Quá giờ");
+
+                // Gửi Alert: "Loại: pumpTimeout", "Ngưỡng: pumpMaxDuration"
+                sendAlert("pumpTimeout", "Sự cố: Bơm chạy quá thời gian cho phép!", elapsed, pumpMaxDuration);
             }
         }
     }
@@ -359,6 +452,16 @@ void loop() {
     doc["water"] = waterLevel;
     doc["bat"] = battery;
     doc["pump"] = pumpStatus;
+
+    doc["msg"] = warningMsg;
+    
+    // String rawJson;
+    // serializeJson(doc, rawJson);
+
+    // String signature = hmac_sha256(rawJson, SECRET_KEY);
+
+    // // --- BƯỚC 3: Thêm chữ ký vào JSON ---
+    // doc["signature"] = signature;
 
     char buffer[300];
     serializeJson(doc, buffer);
